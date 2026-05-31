@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Collapse from '@mui/material/Collapse';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function TrueFalseBlock({ block }) {
   const [selected, setSelected] = useState(null);
@@ -28,7 +29,7 @@ export default function TrueFalseBlock({ block }) {
   return (
     <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-        {block.statement}
+        <RichTextRenderer html={block.statementHtml} text={block.statement} />
       </Typography>
       <Stack direction="row" spacing={2}>
         {[true, false].map((value) => (
@@ -59,9 +60,7 @@ export default function TrueFalseBlock({ block }) {
         >
           <Typography fontWeight={600}>{isCorrect ? '✓ Correct!' : '✗ Incorrect'}</Typography>
           {block.explanation && (
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
-              {block.explanation}
-            </Typography>
+            <RichTextRenderer html={block.explanationHtml} text={block.explanation} sx={{ mt: 0.5 }} />
           )}
         </Box>
       </Collapse>

@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 // Slight rotations for ghost cards — gives the "deck of cards" look
 const GHOST_ROTATIONS = [-5, 3.5];
@@ -64,9 +65,7 @@ function Flashcard({ card }) {
           >
             Tap to flip
           </Typography>
-          <Typography variant="h6" align="center" fontWeight={700} color="text.primary">
-            {card.front}
-          </Typography>
+          <RichTextRenderer html={card.frontHtml} text={card.front} sx={{ textAlign: 'center', fontWeight: 700, color: 'text.primary', fontSize: '1.25rem' }} />
         </Box>
 
         {/* Back */}
@@ -99,9 +98,7 @@ function Flashcard({ card }) {
           >
             Answer
           </Typography>
-          <Typography variant="body1" align="center" color="#fff" fontWeight={500} lineHeight={1.6}>
-            {card.back}
-          </Typography>
+          <RichTextRenderer html={card.backHtml} text={card.back} sx={{ textAlign: 'center', color: '#fff', fontWeight: 500, lineHeight: 1.6 }} />
         </Box>
       </Box>
     </Box>

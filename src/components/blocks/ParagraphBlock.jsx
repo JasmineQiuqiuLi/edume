@@ -1,9 +1,7 @@
-import Typography from '@mui/material/Typography';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function ParagraphBlock({ block }) {
   return (
-    <Typography variant="body1" sx={{ lineHeight: 1.8 }}>
-      {block.content}
-    </Typography>
+    <RichTextRenderer html={block.contentHtml} text={block.content} sx={{ lineHeight: 1.8 }} />
   );
 }

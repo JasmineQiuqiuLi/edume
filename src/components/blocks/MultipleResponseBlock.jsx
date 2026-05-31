@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack';
 import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 function sameSelection(selected, correct) {
   const selectedSet = new Set(selected);
@@ -32,7 +33,7 @@ export default function MultipleResponseBlock({ block }) {
   return (
     <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-        {block.question}
+        <RichTextRenderer html={block.questionHtml} text={block.question} />
       </Typography>
       <Stack spacing={1}>
         {block.options.map((option, i) => {
@@ -67,7 +68,7 @@ export default function MultipleResponseBlock({ block }) {
             >
               <FormControlLabel
                 control={<Checkbox checked={selected.includes(i)} disabled={submitted} />}
-                label={option}
+                label={<RichTextRenderer html={block.optionsHtml?.[i]} text={option} />}
                 sx={{ m: 0, width: '100%' }}
               />
             </Box>
@@ -97,9 +98,7 @@ export default function MultipleResponseBlock({ block }) {
             {isCorrect ? 'Correct!' : 'Incorrect'}
           </Typography>
           {block.explanation && (
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
-              {block.explanation}
-            </Typography>
+            <RichTextRenderer html={block.explanationHtml} text={block.explanation} sx={{ mt: 0.5 }} />
           )}
         </Box>
       </Collapse>

@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { v4 as uuidv4 } from 'uuid';
+import { sanitizeRichHtml, richTextToPlainText } from '../utils/richText.js';
 
 const RISE_INDEX_PATH = 'scormcontent/index.html';
 
@@ -7,31 +8,14 @@ function textFromHtml(value) {
   if (value && typeof value === 'object') {
     return textFromHtml(value.description ?? value.paragraph ?? value.title ?? '');
   }
+  return richTextToPlainText(value);
+}
 
-  const html = String(value ?? '').trim();
-  if (!html) return '';
-
-  if (typeof DOMParser !== 'undefined') {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
-    doc.querySelectorAll('li').forEach((li) => {
-      li.appendChild(doc.createTextNode('\n'));
-    });
-    return (doc.body.textContent ?? '').replace(/\u00a0/g, ' ').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
+function htmlFromRise(value) {
+  if (value && typeof value === 'object') {
+    return htmlFromRise(value.description ?? value.paragraph ?? value.title ?? '');
   }
-
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
+  return sanitizeRichHtml(value);
 }
 
 function decodeBase64Json(encoded) {
@@ -183,7 +167,9 @@ async function convertImageBlock(zip, riseBlock, warnings) {
       imageSrc: image?.src ?? '',
       alt: textFromHtml(item.caption) || image?.name || 'Imported Rise image',
       caption: textFromHtml(item.caption),
+      captionHtml: htmlFromRise(item.caption),
       content: textFromHtml(item.paragraph),
+      contentHtml: htmlFromRise(item.paragraph),
       imagePosition: riseBlock.settings?.imagePosition === 'right' ? 'right' : 'left',
     }];
   }
@@ -202,6 +188,7 @@ async function convertImageBlock(zip, riseBlock, warnings) {
         src: image.src,
         alt: caption || image.name,
         caption,
+        captionHtml: htmlFromRise(item.caption),
       });
     } else {
       output.push({
@@ -228,6 +215,8 @@ function convertTextBlock(riseBlock) {
   for (const item of riseBlock.items ?? []) {
     const heading = textFromHtml(item.heading);
     const paragraph = textFromHtml(item.paragraph);
+    const headingHtml = htmlFromRise(item.heading);
+    const paragraphHtml = htmlFromRise(item.paragraph);
 
     if (heading) {
       output.push({
@@ -235,6 +224,7 @@ function convertTextBlock(riseBlock) {
         type: 'heading',
         level: 2,
         content: heading,
+        contentHtml: headingHtml,
       });
     }
 
@@ -243,6 +233,7 @@ function convertTextBlock(riseBlock) {
         id: heading ? uuidv4() : blockId(item.id),
         type: 'paragraph',
         content: paragraph,
+        contentHtml: paragraphHtml,
       });
     }
   }
@@ -254,6 +245,8 @@ function convertFlashcards(riseBlock) {
     .map((item) => ({
       front: textFromHtml(item.front),
       back: textFromHtml(item.back),
+      frontHtml: htmlFromRise(item.front),
+      backHtml: htmlFromRise(item.back),
     }))
     .filter((card) => card.front && card.back);
 
@@ -269,10 +262,11 @@ function convertTabs(riseBlock, warnings) {
     .map((item) => {
       const label = textFromHtml(item.title) || 'Tab';
       const content = textFromHtml(item.description || item.paragraph);
+      const contentHtml = htmlFromRise(item.description || item.paragraph);
       if (mediaKey(item)) {
         warnings.push(`Tab image was not imported inside tab "${label}" because this app's tab block only supports text.`);
       }
-      return { label, content: content || 'Imported Rise tab content was empty.' };
+      return { label, content: content || 'Imported Rise tab content was empty.', contentHtml };
     })
     .filter((item) => item.label && item.content);
 
@@ -304,6 +298,7 @@ async function convertProcess(zip, riseBlock, warnings) {
     steps.push({
       title,
       content: content || '',
+      contentHtml: htmlFromRise(item.description || item.paragraph),
       imageSrc: image?.src ?? '',
       alt: image?.name ?? title,
     });
@@ -321,12 +316,17 @@ function convertImpactNote(riseBlock) {
     .map((item) => textFromHtml(item.paragraph))
     .filter(Boolean)
     .join('\n\n');
+  const contentHtml = (riseBlock.items ?? [])
+    .map((item) => htmlFromRise(item.paragraph))
+    .filter(Boolean)
+    .join('');
 
   return content ? [{
     id: blockId(riseBlock.id),
     type: 'statement',
     variant: 'note',
     content,
+    contentHtml,
   }] : [];
 }
 
@@ -337,6 +337,7 @@ function convertKnowledgeCheck(riseBlock) {
   const question = textFromHtml(item.title || item.question);
   const answers = item.answers ?? [];
   const options = answers.map((answer) => textFromHtml(answer.title || answer.text)).filter(Boolean);
+  const optionsHtml = answers.map((answer) => htmlFromRise(answer.title || answer.text));
   const correctIndexes = answers
     .map((answer, index) => (answer.correct === true || answer.isCorrect === true ? index : -1))
     .filter((index) => index >= 0);
@@ -348,9 +349,12 @@ function convertKnowledgeCheck(riseBlock) {
       id: blockId(item.id || riseBlock.id),
       type: 'multiple-response',
       question,
+      questionHtml: htmlFromRise(item.title || item.question),
       options,
+      optionsHtml,
       correct: correctIndexes,
       explanation: textFromHtml(item.feedback),
+      explanationHtml: htmlFromRise(item.feedback),
     }];
   }
 
@@ -358,9 +362,12 @@ function convertKnowledgeCheck(riseBlock) {
     id: blockId(item.id || riseBlock.id),
     type: 'multiple-choice',
     question,
+    questionHtml: htmlFromRise(item.title || item.question),
     options,
+    optionsHtml,
     correct: correctIndexes[0],
     explanation: textFromHtml(item.feedback),
+    explanationHtml: htmlFromRise(item.feedback),
   }];
 }
 
