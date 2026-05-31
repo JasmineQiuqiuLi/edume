@@ -16,15 +16,16 @@ import { exportCourseToScorm, exportLessonToScorm } from '../../services/scormSe
 
 export default function ExportModal({ course, activeLesson, onClose }) {
   const [scope, setScope] = useState('course');
+  const [gradingMode, setGradingMode] = useState('completion');
   const [exporting, setExporting] = useState(false);
 
   const handleExport = async () => {
     setExporting(true);
     try {
       if (scope === 'lesson' && activeLesson) {
-        await exportLessonToScorm(course, activeLesson);
+        await exportLessonToScorm(course, activeLesson, { gradingMode });
       } else {
-        await exportCourseToScorm(course);
+        await exportCourseToScorm(course, { gradingMode });
       }
       onClose();
     } finally {
@@ -49,7 +50,7 @@ export default function ExportModal({ course, activeLesson, onClose }) {
                 <Box>
                   <Typography variant="body2" fontWeight={600}>Full course</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {course.lessons.length} lesson{course.lessons.length !== 1 ? 's' : ''} — each becomes a separate item in Canvas
+                    {course.lessons.length} lesson{course.lessons.length !== 1 ? 's' : ''} - one Canvas item with built-in lesson navigation
                   </Typography>
                 </Box>
               }
@@ -62,13 +63,45 @@ export default function ExportModal({ course, activeLesson, onClose }) {
                   <Box>
                     <Typography variant="body2" fontWeight={600}>This lesson only</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      "{activeLesson.title}"
+                      Exports "{activeLesson.title}" only
                     </Typography>
                   </Box>
                 }
               />
             )}
           </RadioGroup>
+
+          <Box>
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.75 }}>
+              Grading
+            </Typography>
+            <RadioGroup value={gradingMode} onChange={(e) => setGradingMode(e.target.value)}>
+              <FormControlLabel
+                value="completion"
+                control={<Radio size="small" />}
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>Completion</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Students receive 100% when the SCORM package is completed.
+                    </Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                value="correctness"
+                control={<Radio size="small" />}
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>Correctness</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Score is based on quiz answers; all gradable questions must be answered.
+                    </Typography>
+                  </Box>
+                }
+              />
+            </RadioGroup>
+          </Box>
 
           <Box
             sx={{
@@ -81,7 +114,7 @@ export default function ExportModal({ course, activeLesson, onClose }) {
           >
             <Typography variant="caption" color="text.secondary" component="div">
               <strong>Canvas import steps:</strong><br />
-              Settings → Import Course Content → Content Type: SCORM 1.2 → upload the ZIP
+              Settings - Import Course Content - Content Type: SCORM 1.2 - upload the ZIP
             </Typography>
           </Box>
         </Stack>
@@ -94,7 +127,7 @@ export default function ExportModal({ course, activeLesson, onClose }) {
           disabled={exporting}
           startIcon={exporting ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
         >
-          {exporting ? 'Building…' : 'Download ZIP'}
+          {exporting ? 'Building...' : 'Download ZIP'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -11,6 +11,14 @@ function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
+function jsArg(value) {
+  return esc(JSON.stringify(value ?? ''));
+}
+
+function boolArg(value) {
+  return value === true || value === 'true';
+}
+
 // ── SCORM 1.2 API wrapper (goes in scorm.js) ───────────────────────────────
 const SCORM_JS = `
 (function () {
@@ -50,6 +58,18 @@ const SCORM_JS = `
       api.LMSSetValue('cmi.core.score.min', '0');
       api.LMSSetValue('cmi.core.score.max', '100');
       api.LMSCommit('');
+    },
+    setScore: function (score, completed) {
+      var api = getAPI();
+      if (!api || !initialized) return;
+      api.LMSSetValue('cmi.core.score.raw', String(score));
+      api.LMSSetValue('cmi.core.score.min', '0');
+      api.LMSSetValue('cmi.core.score.max', '100');
+      api.LMSSetValue('cmi.core.lesson_status', completed ? 'completed' : 'incomplete');
+      api.LMSCommit('');
+    },
+    autoComplete: function () {
+      window.ScormWrapper.complete();
     },
     finish: function () {
       var api = getAPI();
@@ -202,7 +222,8 @@ body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-s
 /* Character / social presence */
 .char-block { display: flex; align-items: flex-end; gap: 12px; }
 .char-block.right { flex-direction: row-reverse; }
-.char-avatar { width: 88px; height: 88px; flex-shrink: 0; border-radius: 50%; border: 2.5px solid; padding: 4px; box-sizing: border-box; }
+.char-avatar { width: 88px; height: 88px; flex-shrink: 0; border-radius: 50%; border: 2.5px solid; padding: 4px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.char-avatar svg, .char-avatar img { width: 100%; height: 100%; display: block; object-fit: contain; object-position: center bottom; }
 .char-bubble { flex: 1; min-width: 0; border-radius: 12px; border: 1.5px solid; padding: 16px 20px; }
 .char-bubble.left  { border-left-width: 4px; }
 .char-bubble.right { border-right-width: 4px; }
@@ -234,12 +255,40 @@ body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-s
 .char-bubble.mood-encouraging.right { border-right-color: #EA580C; }
 .char-bubble.mood-cautioning.right  { border-right-color: #D97706; }
 /* Footer */
-.lesson-footer { border-top: 1px solid #E2E8F0; padding: 28px 24px; background: #fff; text-align: center; }
+.lesson-footer { display: none; border-top: 1px solid #E2E8F0; padding: 28px 24px; background: #fff; text-align: center; }
 .lesson-footer-inner { max-width: 720px; margin: 0 auto; }
 .complete-btn { padding: 12px 36px; background: #4F46E5; color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: inherit; transition: filter .15s; }
 .complete-btn:hover { filter: brightness(1.08); }
 .complete-btn:disabled { opacity: .6; cursor: default; filter: none; }
 .complete-msg { display: none; color: #15803D; font-weight: 700; margin-top: 12px; font-size: 0.95rem; }
+/* Full-course SCORM player */
+.course-player { min-height: 100vh; display: grid; grid-template-columns: 260px minmax(0, 1fr); background: #F8FAFC; }
+.course-sidebar { background: #fff; border-right: 1px solid #E2E8F0; overflow-y: auto; padding: 24px 0; }
+.course-sidebar-title { padding: 0 20px 12px; color: #94A3B8; font-size: 0.78rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.course-nav { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.course-nav-btn { width: calc(100% - 16px); margin: 0 8px; border: 0; border-radius: 8px; background: transparent; color: #0F172A; cursor: pointer; display: block; font-family: inherit; font-size: 0.95rem; line-height: 1.45; padding: 12px 14px; text-align: left; }
+.course-nav-btn:hover { background: #F8FAFC; }
+.course-nav-btn.active { background: #EEF2FF; color: #4F46E5; font-weight: 700; }
+.course-main { min-width: 0; overflow-y: auto; }
+.course-topbar { background: rgba(255,255,255,0.92); border-bottom: 1px solid #E2E8F0; padding: 12px 28px; position: sticky; top: 0; z-index: 100; }
+.course-topbar-inner { max-width: 820px; margin: 0 auto; }
+.course-title-small { font-size: 0.75rem; color: #94A3B8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+.course-lesson-title { font-size: 1rem; font-weight: 800; }
+.course-progress { font-size: 0.78rem; color: #64748B; margin-top: 2px; }
+.course-lesson { display: none; max-width: 820px; margin: 0 auto; padding: 40px 28px; }
+.course-lesson.active { display: block; }
+.course-pager { max-width: 820px; margin: 20px auto 0; padding: 0 28px 48px; display: flex; justify-content: space-between; gap: 14px; }
+.course-pager-btn { min-width: 132px; border: 1px solid #E2E8F0; border-radius: 8px; background: #fff; color: #0F172A; cursor: pointer; font-family: inherit; font-size: 0.9rem; font-weight: 700; padding: 10px 16px; }
+.course-pager-btn:hover:not(:disabled) { border-color: #4F46E5; color: #4F46E5; }
+.course-pager-btn:disabled { opacity: .45; cursor: default; }
+.course-player .lesson-footer { display: none; }
+@media (max-width: 760px) {
+  .course-player { display: block; }
+  .course-sidebar { border-right: 0; border-bottom: 1px solid #E2E8F0; max-height: 220px; }
+  .course-lesson { padding: 28px 20px; }
+  .course-topbar { padding: 12px 20px; }
+  .course-pager { padding: 0 20px 36px; }
+}
 `.trim();
 
 // ── Interactive JS (inlined in each lesson) ────────────────────────────────
@@ -255,6 +304,43 @@ function switchTab(groupId, idx) {
   var g = document.getElementById(groupId);
   g.querySelectorAll('.tab-btn').forEach(function(b, i) { b.classList.toggle('active', i === idx); });
   g.querySelectorAll('.tab-panel').forEach(function(p, i) { p.style.display = i === idx ? 'block' : 'none'; });
+}
+function initScormGrading(mode, totalPoints) {
+  window.ScormGrading = {
+    mode: mode || 'completion',
+    totalPoints: Number(totalPoints) || 0,
+    answers: {}
+  };
+
+  if (window.ScormGrading.mode !== 'correctness' || window.ScormGrading.totalPoints === 0) {
+    if (window.ScormWrapper) window.ScormWrapper.autoComplete();
+  }
+}
+function recordScormAnswer(id, earned, possible) {
+  var grading = window.ScormGrading;
+  if (!grading || grading.mode !== 'correctness') return;
+
+  grading.answers[id] = {
+    earned: Math.max(0, Number(earned) || 0),
+    possible: Math.max(0, Number(possible) || 0)
+  };
+
+  var answered = 0;
+  var earnedTotal = 0;
+  Object.keys(grading.answers).forEach(function(key) {
+    answered += grading.answers[key].possible;
+    earnedTotal += grading.answers[key].earned;
+  });
+
+  var complete = grading.totalPoints > 0 && answered >= grading.totalPoints;
+  var score = complete ? Math.round((earnedTotal / grading.totalPoints) * 100) : 0;
+  if (window.ScormWrapper) window.ScormWrapper.setScore(score, complete);
+}
+function clearScormAnswer(id) {
+  var grading = window.ScormGrading;
+  if (!grading || grading.mode !== 'correctness') return;
+  delete grading.answers[id];
+  if (window.ScormWrapper) window.ScormWrapper.setScore(0, false);
 }
 function checkMC(id, correct, explanation) {
   var c = document.getElementById(id);
@@ -273,6 +359,7 @@ function checkMC(id, correct, explanation) {
   fb.style.display = 'block';
   c.querySelector('.check-btn').disabled = true;
   c.querySelector('.retry-btn').style.display = 'inline-block';
+  recordScormAnswer(id, sel === correct ? 1 : 0, 1);
 }
 function retryMC(id) {
   var c = document.getElementById(id);
@@ -280,6 +367,7 @@ function retryMC(id) {
   c.querySelector('.feedback').style.display = 'none';
   c.querySelector('.check-btn').disabled = false;
   c.querySelector('.retry-btn').style.display = 'none';
+  clearScormAnswer(id);
 }
 function checkTF(id, chosen, correct, explanation) {
   var c = document.getElementById(id);
@@ -294,6 +382,7 @@ function checkTF(id, chosen, correct, explanation) {
   fb.textContent = (chosen === correct ? '✓ Correct!' : '✗ Incorrect') + (explanation ? ' — ' + explanation : '');
   fb.style.display = 'block';
   c.querySelector('.retry-btn').style.display = 'inline-block';
+  recordScormAnswer(id, chosen === correct ? 1 : 0, 1);
 }
 function retryTF(id) {
   var c = document.getElementById(id);
@@ -304,6 +393,7 @@ function retryTF(id) {
   });
   c.querySelector('.feedback').style.display = 'none';
   c.querySelector('.retry-btn').style.display = 'none';
+  clearScormAnswer(id);
 }
 function checkFIB(id, answer) {
   var c = document.getElementById(id);
@@ -316,6 +406,7 @@ function checkFIB(id, answer) {
   fb.textContent = ok ? '✓ Correct!' : '✗ The answer is: ' + answer;
   fb.style.display = 'block';
   c.querySelector('.retry-btn').style.display = 'inline-block';
+  recordScormAnswer(id, ok ? 1 : 0, 1);
 }
 function retryFIB(id) {
   var c = document.getElementById(id);
@@ -324,6 +415,7 @@ function retryFIB(id) {
   c.querySelector('.check-btn').disabled = false;
   c.querySelector('.feedback').style.display = 'none';
   c.querySelector('.retry-btn').style.display = 'none';
+  clearScormAnswer(id);
 }
 var _fcIdx = {};
 function fcNav(id, total, dir) {
@@ -342,10 +434,12 @@ function fcNav(id, total, dir) {
 function checkMatch(id, pairs) {
   var c = document.getElementById(id);
   var rows = c.querySelectorAll('.match-row');
+  var earned = 0;
   rows.forEach(function(row, i) {
     var sel = row.querySelector('.match-select');
     if (!sel) return;
     var ok = sel.value === pairs[i];
+    if (ok) earned += 1;
     row.classList.toggle('correct', ok);
     row.classList.toggle('incorrect', !ok);
     sel.disabled = true;
@@ -355,6 +449,7 @@ function checkMatch(id, pairs) {
   fb.className = 'feedback ok';
   fb.textContent = 'Done! Review your answers above.';
   fb.style.display = 'block';
+  recordScormAnswer(id, earned, pairs.length);
 }
 function pickScenario(id, choiceIdx, isCorrect, consequence) {
   var c = document.getElementById(id);
@@ -367,6 +462,7 @@ function pickScenario(id, choiceIdx, isCorrect, consequence) {
   cons.className = 'consequence ' + (isCorrect ? 'good' : 'bad');
   cons.textContent = (isCorrect ? '✓ ' : '✗ ') + consequence;
   cons.style.display = 'block';
+  recordScormAnswer(id, isCorrect ? 1 : 0, 1);
 }
 function toggleReveal(id) {
   var content = document.getElementById(id + '_reveal');
@@ -375,10 +471,77 @@ function toggleReveal(id) {
   content.style.display = hidden ? 'block' : 'none';
   btn.textContent = hidden ? 'Hide' : 'Reveal Answer';
 }
+function initScormInteractions() {
+  document.addEventListener('click', function(event) {
+    var el = event.target.closest('[data-scorm-action]');
+    if (!el) return;
+
+    var action = el.getAttribute('data-scorm-action');
+    if (action === 'check-mc') {
+      checkMC(el.getAttribute('data-id'), Number(el.getAttribute('data-correct')), el.getAttribute('data-explanation') || '');
+    } else if (action === 'retry-mc') {
+      retryMC(el.getAttribute('data-id'));
+    } else if (action === 'check-tf') {
+      checkTF(
+        el.getAttribute('data-id'),
+        el.getAttribute('data-chosen'),
+        el.getAttribute('data-correct'),
+        el.getAttribute('data-explanation') || ''
+      );
+    } else if (action === 'retry-tf') {
+      retryTF(el.getAttribute('data-id'));
+    } else if (action === 'check-fib') {
+      checkFIB(el.getAttribute('data-id'), el.getAttribute('data-answer') || '');
+    } else if (action === 'retry-fib') {
+      retryFIB(el.getAttribute('data-id'));
+    } else if (action === 'pick-scenario') {
+      pickScenario(
+        el.getAttribute('data-id'),
+        Number(el.getAttribute('data-choice')),
+        el.getAttribute('data-correct') === 'true',
+        el.getAttribute('data-consequence') || ''
+      );
+    }
+  });
+}
+var _courseLessonIdx = 0;
+function showLesson(idx) {
+  var lessons = document.querySelectorAll('.course-lesson');
+  if (!lessons.length || idx < 0 || idx >= lessons.length) return;
+
+  _courseLessonIdx = idx;
+  lessons.forEach(function(lesson, i) {
+    lesson.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('.course-nav-btn').forEach(function(btn, i) {
+    btn.classList.toggle('active', i === idx);
+    btn.setAttribute('aria-current', i === idx ? 'page' : 'false');
+  });
+
+  var active = lessons[idx];
+  var title = active.getAttribute('data-title') || '';
+  var titleEl = document.getElementById('course-current-title');
+  var progressEl = document.getElementById('course-current-progress');
+  var prev = document.getElementById('course-prev');
+  var next = document.getElementById('course-next');
+
+  if (titleEl) titleEl.textContent = title;
+  if (progressEl) progressEl.textContent = 'Lesson ' + (idx + 1) + ' of ' + lessons.length;
+  if (prev) prev.disabled = idx === 0;
+  if (next) next.disabled = idx === lessons.length - 1;
+
+  var main = document.querySelector('.course-main');
+  if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function courseNav(dir) {
+  showLesson(_courseLessonIdx + dir);
+}
 function markComplete() {
   if (window.ScormWrapper) window.ScormWrapper.complete();
-  document.getElementById('complete-btn').disabled = true;
-  document.getElementById('complete-msg').style.display = 'block';
+  var btn = document.getElementById('complete-btn');
+  var msg = document.getElementById('complete-msg');
+  if (btn) btn.disabled = true;
+  if (msg) msg.style.display = 'block';
 }
 `.trim();
 
@@ -505,8 +668,8 @@ function blockToHtml(block) {
       return `<div class="block block-quiz" id="${id}">
   <div class="question">${esc(block.question)}</div>
   <div class="mc-options">${opts}</div>
-  <button class="check-btn" onclick="checkMC('${id}',${Number(block.correct)},'${esc(block.explanation ?? '')}')">Check Answer</button>
-  <button class="retry-btn" onclick="retryMC('${id}')">Try Again</button>
+  <button class="check-btn" type="button" data-scorm-action="check-mc" data-id="${esc(id)}" data-correct="${Number(block.correct)}" data-explanation="${esc(block.explanation ?? '')}">Check Answer</button>
+  <button class="retry-btn" type="button" data-scorm-action="retry-mc" data-id="${esc(id)}">Try Again</button>
   <div class="feedback"></div>
 </div>`;
     }
@@ -515,10 +678,10 @@ function blockToHtml(block) {
       return `<div class="block block-quiz" id="${id}">
   <div class="question">${esc(block.statement)}</div>
   <div class="tf-row">
-    <button class="tf-btn" id="${id}_true"  onclick="checkTF('${id}','true','${correct}','${esc(block.explanation ?? '')}')">True</button>
-    <button class="tf-btn" id="${id}_false" onclick="checkTF('${id}','false','${correct}','${esc(block.explanation ?? '')}')">False</button>
+    <button class="tf-btn" id="${id}_true" type="button" data-scorm-action="check-tf" data-id="${esc(id)}" data-chosen="true" data-correct="${correct}" data-explanation="${esc(block.explanation ?? '')}">True</button>
+    <button class="tf-btn" id="${id}_false" type="button" data-scorm-action="check-tf" data-id="${esc(id)}" data-chosen="false" data-correct="${correct}" data-explanation="${esc(block.explanation ?? '')}">False</button>
   </div>
-  <button class="retry-btn" onclick="retryTF('${id}')">Try Again</button>
+  <button class="retry-btn" type="button" data-scorm-action="retry-tf" data-id="${esc(id)}">Try Again</button>
   <div class="feedback"></div>
 </div>`;
     }
@@ -532,8 +695,8 @@ function blockToHtml(block) {
       return `<div class="block block-quiz" id="${id}">
   <div class="question">Fill in the blank:</div>
   <div class="fib-row">${fibRow}</div>
-  <button class="check-btn" onclick="checkFIB('${id}','${esc(block.answer ?? '')}')">Check</button>
-  <button class="retry-btn" onclick="retryFIB('${id}')">Try Again</button>
+  <button class="check-btn" type="button" data-scorm-action="check-fib" data-id="${esc(id)}" data-answer="${esc(block.answer ?? '')}">Check</button>
+  <button class="retry-btn" type="button" data-scorm-action="retry-fib" data-id="${esc(id)}">Try Again</button>
   <div class="feedback"></div>
 </div>`;
     }
@@ -579,13 +742,13 @@ function blockToHtml(block) {
       return `<div class="block block-match" id="${id}">
   <div class="question">Match each item with its answer:</div>
   <div class="match-pairs">${rows}</div>
-  <button class="check-btn" onclick="checkMatch('${id}',${answersJson})">Check</button>
+  <button class="check-btn" onclick="checkMatch(${jsArg(id)},${answersJson})">Check</button>
   <div class="feedback"></div>
 </div>`;
     }
     case 'scenario': {
       const choices = block.choices ?? [];
-      const choiceBtns = choices.map((c, i) => `<button class="scenario-choice" onclick="pickScenario('${id}',${i},${!!c.isCorrect},'${esc(c.consequence)}')">${esc(c.label)}</button>`).join('');
+      const choiceBtns = choices.map((c, i) => `<button class="scenario-choice" type="button" data-scorm-action="pick-scenario" data-id="${esc(id)}" data-choice="${i}" data-correct="${boolArg(c.isCorrect)}" data-consequence="${esc(c.consequence ?? '')}">${esc(c.label)}</button>`).join('');
       return `<div class="block block-scenario" id="${id}">
   <div class="scenario-setup">${esc(block.setup)}</div>
   <div class="scenario-cta">What would you do?</div>
@@ -606,7 +769,21 @@ function blockToHtml(block) {
 }
 
 // ── Lesson → full HTML document ────────────────────────────────────────────
-function lessonToHtml(lesson, index, total, courseTitle) {
+function countGradablePoints(lessons) {
+  let total = 0;
+  for (const lesson of lessons ?? []) {
+    for (const block of lesson.blocks ?? []) {
+      if (['multiple-choice', 'true-false', 'fill-in-blank', 'scenario'].includes(block.type)) {
+        total += 1;
+      } else if (block.type === 'drag-to-match') {
+        total += (block.pairs ?? []).length;
+      }
+    }
+  }
+  return total;
+}
+
+function lessonToHtml(lesson, index, total, courseTitle, gradingMode = 'completion', gradablePoints = 0) {
   _blockCounter = 0; // reset counter per lesson
   const blocksHtml = (lesson.blocks ?? []).map(blockToHtml).filter(Boolean).join('\n');
   const progress = total > 1 ? `Lesson ${index + 1} of ${total}` : '';
@@ -646,24 +823,83 @@ ${blocksHtml}
 </div>
 <script src="scorm.js"></script>
 <script>${INTERACTIVE_JS}</script>
+<script>window.addEventListener('load', function () { initScormInteractions(); initScormGrading('${gradingMode}', ${gradablePoints}); });</script>
 </body>
 </html>`;
 }
 
 // ── imsmanifest.xml ────────────────────────────────────────────────────────
-function generateManifest(course) {
-  const lessons = course.lessons ?? [];
+function courseToHtml(course, lessons, gradingMode = 'completion', gradablePoints = 0) {
+  _blockCounter = 0; // keep generated block IDs unique across embedded lessons
+  const courseTitle = course.title ?? 'Course';
+  const navItems = lessons.map((lesson, i) => `<li>
+    <button class="course-nav-btn${i === 0 ? ' active' : ''}" type="button" onclick="showLesson(${i})" aria-current="${i === 0 ? 'page' : 'false'}">
+      ${i + 1}. ${esc(lesson.title)}
+    </button>
+  </li>`).join('');
+  const lessonPanels = lessons.map((lesson, i) => {
+    const blocksHtml = (lesson.blocks ?? []).map(blockToHtml).filter(Boolean).join('\n');
+    return `<section class="course-lesson${i === 0 ? ' active' : ''}" id="course_lesson_${i}" data-title="${esc(lesson.title)}">
+${blocksHtml}
+</section>`;
+  }).join('\n');
+  const firstLessonTitle = lessons[0]?.title ?? '';
+  const progress = lessons.length ? `Lesson 1 of ${lessons.length}` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${esc(courseTitle)}</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="course-player">
+  <aside class="course-sidebar" aria-label="Lessons">
+    <div class="course-sidebar-title">Lessons</div>
+    <ol class="course-nav">
+${navItems}
+    </ol>
+  </aside>
+
+  <div class="course-main">
+    <header class="course-topbar">
+      <div class="course-topbar-inner">
+        <div class="course-title-small">${esc(courseTitle)}</div>
+        <div class="course-lesson-title" id="course-current-title">${esc(firstLessonTitle)}</div>
+        <div class="course-progress" id="course-current-progress">${progress}</div>
+      </div>
+    </header>
+
+${lessonPanels}
+
+    <div class="course-pager">
+      <button class="course-pager-btn" id="course-prev" type="button" onclick="courseNav(-1)" disabled>Previous</button>
+      <button class="course-pager-btn" id="course-next" type="button" onclick="courseNav(1)" ${lessons.length <= 1 ? 'disabled' : ''}>Next</button>
+    </div>
+
+    <footer class="lesson-footer">
+      <div class="lesson-footer-inner">
+        <button class="complete-btn" id="complete-btn" onclick="markComplete()">
+          Mark as Complete âœ“
+        </button>
+        <div class="complete-msg" id="complete-msg">
+          âœ“ Progress saved! You can close this lesson.
+        </div>
+      </div>
+    </footer>
+  </div>
+</div>
+<script src="scorm.js"></script>
+<script>${INTERACTIVE_JS}</script>
+<script>window.addEventListener('load', function () { initScormInteractions(); initScormGrading('${gradingMode}', ${gradablePoints}); });</script>
+</body>
+</html>`;
+}
+
+function generateManifest(course, entryFile = 'index.html') {
   const safeId = (course.id ?? 'course').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-  const items = lessons.map((l, i) => `      <item identifier="item_${i}" identifierref="res_${i}">
-        <title>${esc(l.title)}</title>
-      </item>`).join('\n');
-
-  const resources = lessons.map((l, i) => `    <resource identifier="res_${i}" type="webcontent" adlcp:scormtype="sco" href="lesson_${i}.html">
-      <file href="lesson_${i}.html"/>
-      <file href="scorm.js"/>
-      <file href="styles.css"/>
-    </resource>`).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="com_${safeId}" version="1.2"
@@ -679,11 +915,17 @@ function generateManifest(course) {
   <organizations default="org_${safeId}">
     <organization identifier="org_${safeId}">
       <title>${esc(course.title)}</title>
-${items}
+      <item identifier="item_${safeId}" identifierref="res_${safeId}">
+        <title>${esc(course.title)}</title>
+      </item>
     </organization>
   </organizations>
   <resources>
-${resources}
+    <resource identifier="res_${safeId}" type="webcontent" adlcp:scormtype="sco" href="${entryFile}">
+      <file href="${entryFile}"/>
+      <file href="scorm.js"/>
+      <file href="styles.css"/>
+    </resource>
   </resources>
 </manifest>`;
 }
@@ -700,16 +942,6 @@ async function fetchImageAsBase64(url) {
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
     });
-  } catch {
-    return null;
-  }
-}
-
-async function fetchSvgText(url) {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.text();
   } catch {
     return null;
   }
@@ -737,13 +969,13 @@ async function prefetchImages(lessons) {
           })
         );
       }
-      if (block.type === 'character' && block.persona) {
-        const svgUrl = `https://api.dicebear.com/9.x/open-peeps/svg?seed=${encodeURIComponent(block.persona)}&backgroundColor=transparent`;
+      if (block.type === 'character') {
+        const avatarUrl = block.imageUrl
+          ?? `https://api.dicebear.com/9.x/open-peeps/svg?seed=${encodeURIComponent(block.persona ?? 'teacher')}&backgroundColor=transparent`;
         tasks.push(
-          fetchSvgText(svgUrl).then((svg) => {
-            // Wrap in a sized container so the SVG fills the avatar circle
-            block._scormSvg = svg
-              ? svg.replace('<svg ', '<svg width="80" height="80" style="display:block" ')
+          fetchImageAsBase64(avatarUrl).then((dataUri) => {
+            block._scormSvg = dataUri
+              ? `<img src="${dataUri}" alt="${esc(block.persona ?? 'Instructor')}">`
               : null;
           })
         );
@@ -754,18 +986,40 @@ async function prefetchImages(lessons) {
 }
 
 // ── Public export functions ────────────────────────────────────────────────
-async function buildZip(course, lessons) {
+function normalizeGradingMode(mode) {
+  return mode === 'correctness' ? 'correctness' : 'completion';
+}
+
+async function buildCourseZip(course, options = {}) {
+  const gradingMode = normalizeGradingMode(options.gradingMode);
   // Deep-clone lessons so we don't mutate the store
-  const clonedLessons = JSON.parse(JSON.stringify(lessons));
+  const clonedLessons = JSON.parse(JSON.stringify(course.lessons ?? []));
   await prefetchImages(clonedLessons);
+  const gradablePoints = countGradablePoints(clonedLessons);
 
   const zip = new JSZip();
-  zip.file('imsmanifest.xml', generateManifest({ ...course, lessons: clonedLessons }));
+  zip.file('imsmanifest.xml', generateManifest(course, 'index.html'));
   zip.file('scorm.js', SCORM_JS);
   zip.file('styles.css', SCORM_CSS);
-  clonedLessons.forEach((lesson, i) => {
-    zip.file(`lesson_${i}.html`, lessonToHtml(lesson, i, clonedLessons.length, course.title));
-  });
+  zip.file('index.html', courseToHtml(course, clonedLessons, gradingMode, gradablePoints));
+  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+}
+
+async function buildLessonZip(course, lesson, options = {}) {
+  const gradingMode = normalizeGradingMode(options.gradingMode);
+  const clonedLesson = JSON.parse(JSON.stringify(lesson));
+  await prefetchImages([clonedLesson]);
+  const gradablePoints = countGradablePoints([clonedLesson]);
+
+  const zip = new JSZip();
+  const manifestCourse = {
+    ...course,
+    title: clonedLesson.title ?? course.title,
+  };
+  zip.file('imsmanifest.xml', generateManifest(manifestCourse, 'lesson.html'));
+  zip.file('scorm.js', SCORM_JS);
+  zip.file('styles.css', SCORM_CSS);
+  zip.file('lesson.html', lessonToHtml(clonedLesson, 0, 1, course.title, gradingMode, gradablePoints));
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
@@ -784,12 +1038,12 @@ function safeFilename(title) {
   return title.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').slice(0, 60) || 'course';
 }
 
-export async function exportCourseToScorm(course) {
-  const blob = await buildZip(course, course.lessons ?? []);
+export async function exportCourseToScorm(course, options = {}) {
+  const blob = await buildCourseZip(course, options);
   downloadBlob(blob, `${safeFilename(course.title)}_scorm.zip`);
 }
 
-export async function exportLessonToScorm(course, lesson) {
-  const blob = await buildZip(course, [lesson]);
+export async function exportLessonToScorm(course, lesson, options = {}) {
+  const blob = await buildLessonZip(course, lesson, options);
   downloadBlob(blob, `${safeFilename(lesson.title)}_scorm.zip`);
 }

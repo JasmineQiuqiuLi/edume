@@ -1,7 +1,7 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -15,6 +15,20 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
+import { getEventCoordinates } from '@dnd-kit/utilities';
+
+const centerOverlayOnCursor = ({ activatorEvent, draggingNodeRect, transform }) => {
+  if (!activatorEvent || !draggingNodeRect) return transform;
+
+  const activatorCoordinates = getEventCoordinates(activatorEvent);
+  if (!activatorCoordinates) return transform;
+
+  return {
+    ...transform,
+    x: transform.x + activatorCoordinates.x - draggingNodeRect.left - draggingNodeRect.width / 2,
+    y: transform.y + activatorCoordinates.y - draggingNodeRect.top - draggingNodeRect.height / 2,
+  };
+};
 
 function DraggableChip({ id, label, disabled }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -125,6 +139,18 @@ export default function DragToMatchBlock({ block }) {
     return matches[promptIdx] === pairs[promptIdx].answer ? 'correct' : 'incorrect';
   };
 
+  const dragOverlay = (
+    <DragOverlay modifiers={[centerOverlayOnCursor]} dropAnimation={null}>
+      {activeId ? (
+        <Chip
+          label={activeId}
+          color="primary"
+          sx={{ cursor: 'grabbing', pointerEvents: 'none' }}
+        />
+      ) : null}
+    </DragOverlay>
+  );
+
   return (
     <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
@@ -189,9 +215,7 @@ export default function DragToMatchBlock({ block }) {
           </Stack>
         </DropZone>
 
-        <DragOverlay>
-          {activeId ? <Chip label={activeId} color="primary" /> : null}
-        </DragOverlay>
+        {typeof document === 'undefined' ? dragOverlay : createPortal(dragOverlay, document.body)}
       </DndContext>
 
       <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
