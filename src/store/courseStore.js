@@ -115,6 +115,45 @@ const useCourseStore = create(
         }));
       },
 
+      insertBlock: (courseId, lessonId, index, block) => {
+        set((state) => ({
+          courses: state.courses.map((c) =>
+            c.id !== courseId
+              ? c
+              : {
+                  ...c,
+                  lessons: c.lessons.map((l) => {
+                    if (l.id !== lessonId) return l;
+                    const nextBlocks = [...l.blocks];
+                    nextBlocks.splice(index, 0, { ...block, id: block.id ?? uuidv4() });
+                    return { ...l, blocks: nextBlocks };
+                  }),
+                }
+          ),
+        }));
+      },
+
+      applyCharacterImage: (courseId, characterName, imageUrl) => {
+        if (!characterName || !imageUrl) return;
+        set((state) => ({
+          courses: state.courses.map((c) =>
+            c.id !== courseId
+              ? c
+              : {
+                  ...c,
+                  lessons: c.lessons.map((l) => ({
+                    ...l,
+                    blocks: l.blocks.map((b) =>
+                      b.type === 'character' && b.persona === characterName
+                        ? { ...b, imageUrl }
+                        : b
+                    ),
+                  })),
+                }
+          ),
+        }));
+      },
+
       deleteBlock: (courseId, lessonId, blockId) => {
         set((state) => ({
           courses: state.courses.map((c) =>

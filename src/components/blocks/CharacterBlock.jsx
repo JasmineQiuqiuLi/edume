@@ -81,7 +81,7 @@ export default function CharacterBlock({ block }) {
         }}
       >
         <span>{colors.emoji}</span>
-        {colors.label}
+        {persona}
       </Typography>
       <Typography variant="body1" color="text.primary" sx={{ lineHeight: 1.7 }}>
         {block.message}

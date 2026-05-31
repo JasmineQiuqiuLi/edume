@@ -14,6 +14,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CourseNav from '../components/course/CourseNav';
 import LessonViewer from '../components/course/LessonViewer';
 import EditBlockModal from '../components/ui/EditBlockModal';
+import AddBlockModal from '../components/ui/AddBlockModal';
 import RefineBlockModal from '../components/ui/RefineBlockModal';
 import ExportModal from '../components/ui/ExportModal';
 import useCourseStore from '../store/courseStore';
@@ -25,11 +26,14 @@ export default function CoursePage() {
   const activeLessonId = useCourseStore((s) => s.activeLessonId);
   const setActiveLesson = useCourseStore((s) => s.setActiveLesson);
   const updateBlock = useCourseStore((s) => s.updateBlock);
+  const insertBlock = useCourseStore((s) => s.insertBlock);
+  const applyCharacterImage = useCourseStore((s) => s.applyCharacterImage);
   const deleteBlock = useCourseStore((s) => s.deleteBlock);
   const refineBlock = useCourseStore((s) => s.refineBlock);
   const status = useCourseStore((s) => s.status);
 
   const [editTarget, setEditTarget] = useState(null);
+  const [addTarget, setAddTarget] = useState(null);
   const [refineTarget, setRefineTarget] = useState(null);
   const [showExport, setShowExport] = useState(false);
   const scrollRef = useRef(null);
@@ -59,6 +63,22 @@ export default function CoursePage() {
 
   const handleDelete = (lessonId, blockId) => {
     if (window.confirm('Delete this block?')) deleteBlock(id, lessonId, blockId);
+  };
+
+  const handleSaveBlock = (lessonId, blockId, updated, options = {}) => {
+    updateBlock(id, lessonId, blockId, updated);
+    if (options.applyCharacterImage && updated.type === 'character' && updated.persona && updated.imageUrl) {
+      applyCharacterImage(id, updated.persona, updated.imageUrl);
+    }
+  };
+
+  const handleAddBlock = (block, options = {}) => {
+    if (!addTarget) return;
+    insertBlock(id, addTarget.lessonId, addTarget.index, block);
+    if (options.applyCharacterImage && block.type === 'character' && block.persona && block.imageUrl) {
+      applyCharacterImage(id, block.persona, block.imageUrl);
+    }
+    setAddTarget(null);
   };
 
   return (
@@ -111,6 +131,7 @@ export default function CoursePage() {
                 onEdit={setEditTarget}
                 onRefine={setRefineTarget}
                 onDelete={handleDelete}
+                onAddBlock={(lessonId, index) => setAddTarget({ lessonId, index })}
               />
 
               {/* Prev / Next lesson navigation */}
@@ -190,13 +211,19 @@ export default function CoursePage() {
       {editTarget && (
         <EditBlockModal
           block={editTarget}
-          onSave={(updated) => {
-            updateBlock(id, activeLesson.id, editTarget.id, updated);
+          onSave={(updated, options) => {
+            handleSaveBlock(activeLesson.id, editTarget.id, updated, options);
             setEditTarget(null);
           }}
           onClose={() => setEditTarget(null)}
         />
       )}
+
+      <AddBlockModal
+        open={!!addTarget}
+        onClose={() => setAddTarget(null)}
+        onAdd={handleAddBlock}
+      />
 
       {refineTarget && (
         <RefineBlockModal
