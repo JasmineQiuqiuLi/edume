@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function RiseProcessBlock({ block }) {
   const steps = block.steps ?? [];
@@ -40,10 +41,8 @@ export default function RiseProcessBlock({ block }) {
           <Typography variant="h6" fontWeight={800} gutterBottom>
             {step.title}
           </Typography>
-          {step.content && (
-            <Typography color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-              {step.content}
-            </Typography>
+          {(step.content || step.contentHtml) && (
+            <RichTextRenderer html={step.contentHtml} text={step.content} sx={{ color: 'text.secondary', whiteSpace: 'pre-line' }} />
           )}
         </Box>
 

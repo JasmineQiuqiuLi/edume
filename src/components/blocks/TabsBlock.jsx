@@ -3,6 +3,7 @@ import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function TabsBlock({ block }) {
   const [value, setValue] = useState(0);
@@ -21,7 +22,7 @@ export default function TabsBlock({ block }) {
         ))}
       </Tabs>
       <Box sx={{ p: 3 }}>
-        <Typography>{block.items[value]?.content}</Typography>
+        <RichTextRenderer html={block.items[value]?.contentHtml} text={block.items[value]?.content} />
       </Box>
     </Box>
   );

@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { sanitizeRichHtml } from '../utils/richText.js';
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 function esc(str) {
@@ -17,6 +18,11 @@ function jsArg(value) {
 
 function boolArg(value) {
   return value === true || value === 'true';
+}
+
+function rich(value, fallback = '') {
+  const html = sanitizeRichHtml(value);
+  return html || esc(fallback);
 }
 
 // ── SCORM 1.2 API wrapper (goes in scorm.js) ───────────────────────────────
@@ -635,10 +641,10 @@ function blockToHtml(block) {
   switch (block.type) {
     case 'heading': {
       const tag = { 1: 'h2', 2: 'h3', 3: 'h4' }[block.level] ?? 'h3';
-      return `<div class="block block-heading"><${tag}>${esc(block.content)}</${tag}></div>`;
+      return `<div class="block block-heading"><${tag}>${rich(block.contentHtml, block.content)}</${tag}></div>`;
     }
     case 'paragraph':
-      return `<div class="block block-paragraph"><p>${esc(block.content)}</p></div>`;
+      return `<div class="block block-paragraph">${rich(block.contentHtml, block.content)}</div>`;
 
     case 'statement': {
       const variant = block.variant ?? 'note';
@@ -646,21 +652,21 @@ function blockToHtml(block) {
       const titles = { note: 'Note', tip: 'Tip', warning: 'Warning' };
       return `<div class="block block-statement ${esc(variant)}">
   <span class="stmt-icon">${icons[variant] ?? 'ℹ️'}</span>
-  <div class="stmt-body"><div class="stmt-title">${titles[variant] ?? 'Note'}</div><div>${esc(block.content)}</div></div>
+  <div class="stmt-body"><div class="stmt-title">${titles[variant] ?? 'Note'}</div><div>${rich(block.contentHtml, block.content)}</div></div>
 </div>`;
     }
     case 'quote':
       return `<div class="block block-quote">
-  <blockquote>${esc(block.content)}</blockquote>
+  <blockquote>${rich(block.contentHtml, block.content)}</blockquote>
   ${block.attribution ? `<div class="attr">— ${esc(block.attribution)}</div>` : ''}
 </div>`;
 
     case 'bullet-list': {
-      const items = (block.items ?? []).map(i => `<li>${esc(i)}</li>`).join('');
+      const items = (block.items ?? []).map((i, idx) => `<li>${rich(block.itemsHtml?.[idx], i)}</li>`).join('');
       return `<div class="block block-list"><ul>${items}</ul></div>`;
     }
     case 'numbered-list': {
-      const items = (block.items ?? []).map(i => `<li>${esc(i)}</li>`).join('');
+      const items = (block.items ?? []).map((i, idx) => `<li>${rich(block.itemsHtml?.[idx], i)}</li>`).join('');
       return `<div class="block block-list"><ol>${items}</ol></div>`;
     }
     case 'accordion': {
@@ -668,7 +674,7 @@ function blockToHtml(block) {
         const cid = `${id}_a${i}`;
         return `<div class="acc-item">
   <button class="acc-btn" id="btn_${cid}" onclick="toggleAccordion('btn_${cid}','${cid}')">${esc(item.label)}</button>
-  <div class="acc-content" id="${cid}">${esc(item.content)}</div>
+  <div class="acc-content" id="${cid}">${rich(item.contentHtml, item.content)}</div>
 </div>`;
       }).join('');
       return `<div class="block block-accordion">${items}</div>`;
@@ -679,7 +685,7 @@ function blockToHtml(block) {
         `<button class="tab-btn${i === 0 ? ' active' : ''}" onclick="switchTab('${id}',${i})">${esc(item.label)}</button>`
       ).join('');
       const panels = items.map((item, i) =>
-        `<div class="tab-panel${i === 0 ? ' active' : ''}">${esc(item.content)}</div>`
+        `<div class="tab-panel${i === 0 ? ' active' : ''}">${rich(item.contentHtml, item.content)}</div>`
       ).join('');
       return `<div class="block block-tabs" id="${id}">
   <div class="tab-buttons">${btns}</div>
@@ -689,7 +695,7 @@ function blockToHtml(block) {
     case 'process': {
       const steps = (block.steps ?? []).map((s, i) => `<div class="process-step">
   <div class="step-num">${i + 1}</div>
-  <div><div class="step-title">${esc(s.title)}</div>${s.content ? `<div class="step-desc">${esc(s.content)}</div>` : ''}</div>
+  <div><div class="step-title">${esc(s.title)}</div>${s.content || s.contentHtml ? `<div class="step-desc">${rich(s.contentHtml, s.content)}</div>` : ''}</div>
 </div>`).join('');
       return `<div class="block">${steps}</div>`;
     }
@@ -700,7 +706,7 @@ function blockToHtml(block) {
   <div class="rise-process-body">
     <div class="rise-process-count">Step ${i + 1} of ${steps.length}</div>
     <div class="rise-process-title">${esc(s.title ?? `Step ${i + 1}`)}</div>
-    ${s.content ? `<div class="rise-process-text">${esc(s.content)}</div>` : ''}
+    ${s.content || s.contentHtml ? `<div class="rise-process-text">${rich(s.contentHtml, s.content)}</div>` : ''}
   </div>
 </div>`).join('');
       const nav = steps.length > 1 ? `<div class="rise-process-nav">
@@ -726,7 +732,7 @@ ${nav}
       const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(block.svg)}`;
       return `<div class="block" style="text-align:center">
   <img src="${src}" alt="${esc(block.caption ?? 'Diagram')}" style="max-width:100%;border-radius:8px;border:1px solid #E2E8F0;background:#fff;display:block;margin:0 auto;">
-  ${block.caption ? `<div class="yt-caption">${esc(block.caption)}</div>` : ''}
+  ${block.caption ? `<div class="yt-caption">${rich(block.captionHtml, block.caption)}</div>` : ''}
 </div>`;
     }
 
@@ -734,14 +740,14 @@ ${nav}
       if (!block._scormSrc) return '';
       return `<div class="block block-image">
   <img src="${block._scormSrc}" alt="${esc(block.alt ?? block.caption ?? 'Image')}">
-  ${block.caption ? `<div class="img-caption">${esc(block.caption)}</div>` : ''}
+  ${block.caption || block.captionHtml ? `<div class="img-caption">${rich(block.captionHtml, block.caption)}</div>` : ''}
 </div>`;
     }
     case 'rise-image-text': {
       const side = block.imagePosition === 'right' ? 'right' : 'left';
       return `<div class="block rise-image-text ${side}">
-  ${block.imageSrc ? `<div class="rise-image-text-media"><img src="${esc(block.imageSrc)}" alt="${esc(block.alt ?? block.caption ?? 'Imported Rise image')}">${block.caption ? `<div class="img-caption">${esc(block.caption)}</div>` : ''}</div>` : ''}
-  <div class="rise-image-text-copy">${esc(block.content ?? '')}</div>
+  ${block.imageSrc ? `<div class="rise-image-text-media"><img src="${esc(block.imageSrc)}" alt="${esc(block.alt ?? block.caption ?? 'Imported Rise image')}">${block.caption || block.captionHtml ? `<div class="img-caption">${rich(block.captionHtml, block.caption)}</div>` : ''}</div>` : ''}
+  <div class="rise-image-text-copy">${rich(block.contentHtml, block.content ?? '')}</div>
 </div>`;
     }
 
@@ -770,10 +776,10 @@ ${nav}
 
     case 'multiple-choice': {
       const opts = (block.options ?? []).map((opt, i) => `<label class="mc-option" id="${id}_o${i}">
-  <input type="radio" name="${id}_r" value="${i}"> ${esc(opt)}
+  <input type="radio" name="${id}_r" value="${i}"> ${rich(block.optionsHtml?.[i], opt)}
 </label>`).join('');
       return `<div class="block block-quiz" id="${id}">
-  <div class="question">${esc(block.question)}</div>
+  <div class="question">${rich(block.questionHtml, block.question)}</div>
   <div class="mc-options">${opts}</div>
   <button class="check-btn" type="button" data-scorm-action="check-mc" data-id="${esc(id)}" data-correct="${Number(block.correct)}" data-explanation="${esc(block.explanation ?? '')}">Check Answer</button>
   <button class="retry-btn" type="button" data-scorm-action="retry-mc" data-id="${esc(id)}">Try Again</button>
@@ -783,10 +789,10 @@ ${nav}
     case 'multiple-response': {
       const correct = JSON.stringify(block.correct ?? []);
       const opts = (block.options ?? []).map((opt, i) => `<label class="mc-option" id="${id}_o${i}">
-  <input type="checkbox" name="${id}_c" value="${i}"> ${esc(opt)}
+  <input type="checkbox" name="${id}_c" value="${i}"> ${rich(block.optionsHtml?.[i], opt)}
 </label>`).join('');
       return `<div class="block block-quiz" id="${id}">
-  <div class="question">${esc(block.question)}</div>
+  <div class="question">${rich(block.questionHtml, block.question)}</div>
   <div class="mc-options">${opts}</div>
   <button class="check-btn" type="button" data-scorm-action="check-mr" data-id="${esc(id)}" data-correct="${esc(correct)}" data-explanation="${esc(block.explanation ?? '')}">Check Answer</button>
   <button class="retry-btn" type="button" data-scorm-action="retry-mr" data-id="${esc(id)}">Try Again</button>
@@ -796,7 +802,7 @@ ${nav}
     case 'true-false': {
       const correct = block.correct === true ? 'true' : 'false';
       return `<div class="block block-quiz" id="${id}">
-  <div class="question">${esc(block.statement)}</div>
+  <div class="question">${rich(block.statementHtml, block.statement)}</div>
   <div class="tf-row">
     <button class="tf-btn" id="${id}_true" type="button" data-scorm-action="check-tf" data-id="${esc(id)}" data-chosen="true" data-correct="${correct}" data-explanation="${esc(block.explanation ?? '')}">True</button>
     <button class="tf-btn" id="${id}_false" type="button" data-scorm-action="check-tf" data-id="${esc(id)}" data-chosen="false" data-correct="${correct}" data-explanation="${esc(block.explanation ?? '')}">False</button>
@@ -809,8 +815,8 @@ ${nav}
       const parts = (block.template ?? '').split('___');
       const fibRow = parts.map((part, i) =>
         i < parts.length - 1
-          ? `${esc(part)} <input class="fib-input" type="text" placeholder="${esc(block.hint ?? 'answer')}">`
-          : esc(part)
+            ? `${rich(block.templatePartsHtml?.[i], part)} <input class="fib-input" type="text" placeholder="${esc(block.hint ?? 'answer')}">`
+          : rich(block.templatePartsHtml?.[i], part)
       ).join('');
       return `<div class="block block-quiz" id="${id}">
   <div class="question">Fill in the blank:</div>
@@ -827,8 +833,8 @@ ${nav}
       const ghostColors = ['#E0E7FF', '#C7D2FE'];
       const cardDivs = cards.map((card, i) => `<div class="fc-wrap" id="${id}_c${i}" style="${i > 0 ? 'display:none' : ''}" onclick="this.classList.toggle('flipped')">
   <div class="fc-inner">
-    <div class="fc-face fc-front"><div class="fc-hint">Tap to flip</div><div class="fc-text">${esc(card.front)}</div></div>
-    <div class="fc-face fc-back"><div class="fc-hint">Answer</div><div class="fc-text">${esc(card.back)}</div></div>
+    <div class="fc-face fc-front"><div class="fc-hint">Tap to flip</div><div class="fc-text">${rich(card.frontHtml, card.front)}</div></div>
+    <div class="fc-face fc-back"><div class="fc-hint">Answer</div><div class="fc-text">${rich(card.backHtml, card.back)}</div></div>
   </div>
 </div>`).join('');
       const ghosts = Array.from({ length: ghostCount }, (_, i) =>
@@ -868,9 +874,9 @@ ${nav}
     }
     case 'scenario': {
       const choices = block.choices ?? [];
-      const choiceBtns = choices.map((c, i) => `<button class="scenario-choice" type="button" data-scorm-action="pick-scenario" data-id="${esc(id)}" data-choice="${i}" data-correct="${boolArg(c.isCorrect)}" data-consequence="${esc(c.consequence ?? '')}">${esc(c.label)}</button>`).join('');
+      const choiceBtns = choices.map((c, i) => `<button class="scenario-choice" type="button" data-scorm-action="pick-scenario" data-id="${esc(id)}" data-choice="${i}" data-correct="${boolArg(c.isCorrect)}" data-consequence="${esc(c.consequence ?? '')}">${rich(c.labelHtml, c.label)}</button>`).join('');
       return `<div class="block block-scenario" id="${id}">
-  <div class="scenario-setup">${esc(block.setup)}</div>
+  <div class="scenario-setup">${rich(block.setupHtml, block.setup)}</div>
   <div class="scenario-cta">What would you do?</div>
   <div class="scenario-choices">${choiceBtns}</div>
   <div class="consequence" style="display:none"></div>
@@ -878,9 +884,9 @@ ${nav}
     }
     case 'reveal':
       return `<div class="block block-reveal" id="${id}">
-  <div class="reveal-prompt">${esc(block.prompt)}</div>
+  <div class="reveal-prompt">${rich(block.promptHtml, block.prompt)}</div>
   <button class="reveal-btn" id="${id}_btn" onclick="toggleReveal('${id}')">Reveal Answer</button>
-  <div class="reveal-content" id="${id}_reveal" style="display:none">${esc(block.revealContent)}</div>
+  <div class="reveal-content" id="${id}_reveal" style="display:none">${rich(block.revealContentHtml, block.revealContent)}</div>
 </div>`;
 
     default:

@@ -4,6 +4,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Collapse from '@mui/material/Collapse';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function RevealBlock({ block }) {
   const [revealed, setRevealed] = useState(false);
@@ -11,7 +12,7 @@ export default function RevealBlock({ block }) {
   return (
     <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
       <Typography variant="body1" fontWeight={500} gutterBottom>
-        {block.prompt}
+        <RichTextRenderer html={block.promptHtml} text={block.prompt} />
       </Typography>
       {!revealed && (
         <Button
@@ -33,7 +34,7 @@ export default function RevealBlock({ block }) {
             borderRadius: 1,
           }}
         >
-          <Typography variant="body1">{block.revealContent}</Typography>
+          <RichTextRenderer html={block.revealContentHtml} text={block.revealContent} />
         </Box>
       </Collapse>
       {revealed && (

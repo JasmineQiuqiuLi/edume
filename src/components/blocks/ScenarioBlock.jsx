@@ -5,6 +5,7 @@ import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import Collapse from '@mui/material/Collapse';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function ScenarioBlock({ block }) {
   const [chosen, setChosen] = useState(null);
@@ -15,7 +16,7 @@ export default function ScenarioBlock({ block }) {
     <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
       <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 2, mb: 2 }}>
         <Typography variant="body1" fontStyle="italic">
-          {block.setup}
+          <RichTextRenderer html={block.setupHtml} text={block.setup} />
         </Typography>
       </Box>
       <Typography variant="subtitle2" fontWeight={600} gutterBottom>
@@ -36,7 +37,7 @@ export default function ScenarioBlock({ block }) {
               '&:hover': { borderColor: 'primary.light', bgcolor: 'action.hover' },
             }}
           >
-            <Typography variant="body2">{c.label}</Typography>
+            <RichTextRenderer html={c.labelHtml} text={c.label} />
           </Paper>
         ))}
       </Stack>
@@ -55,7 +56,7 @@ export default function ScenarioBlock({ block }) {
             <Typography fontWeight={600} gutterBottom>
               {choice.isCorrect ? '✓ Good choice!' : '✗ Not quite'}
             </Typography>
-            <Typography variant="body2">{choice.consequence}</Typography>
+            <RichTextRenderer html={choice.consequenceHtml} text={choice.consequence} />
           </Box>
         )}
       </Collapse>

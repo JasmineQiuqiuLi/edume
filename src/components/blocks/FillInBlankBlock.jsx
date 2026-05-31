@@ -5,6 +5,7 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Collapse from '@mui/material/Collapse';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function FillInBlankBlock({ block }) {
   const [answer, setAnswer] = useState('');
@@ -23,7 +24,7 @@ export default function FillInBlankBlock({ block }) {
       <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1}>
         {parts.map((part, i) => (
           <Stack key={i} direction="row" alignItems="center" gap={1}>
-            <Typography>{part}</Typography>
+            <RichTextRenderer html={block.templatePartsHtml?.[i]} text={part} />
             {i < parts.length - 1 && (
               <TextField
                 size="small"
