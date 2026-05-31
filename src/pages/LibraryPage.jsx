@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -13,10 +14,17 @@ import Toolbar from '@mui/material/Toolbar';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FaceIcon from '@mui/icons-material/Face';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import useCourseStore from '../store/courseStore';
 
 const PALETTE = ['#4F46E5', '#7C3AED', '#0891B2', '#059669', '#DC2626', '#D97706'];
@@ -24,9 +32,16 @@ const colorFor = (id) => PALETTE[Math.abs(id.charCodeAt(0)) % PALETTE.length];
 
 export default function LibraryPage() {
   const navigate = useNavigate();
+  const inputRef = useRef(null);
+  const [showImport, setShowImport] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const courses = useCourseStore((s) => s.courses);
   const deleteCourse = useCourseStore((s) => s.deleteCourse);
   const setActiveCourse = useCourseStore((s) => s.setActiveCourse);
+  const importScormCourse = useCourseStore((s) => s.importScormCourse);
+  const status = useCourseStore((s) => s.status);
+  const error = useCourseStore((s) => s.error);
+  const importing = status === 'importing';
 
   const handleOpen = (course) => {
     setActiveCourse(course.id);
@@ -36,6 +51,22 @@ export default function LibraryPage() {
   const handleDelete = (e, id) => {
     e.stopPropagation();
     if (window.confirm('Delete this course?')) deleteCourse(id);
+  };
+
+  const handleImportFile = async (file) => {
+    if (!file || importing) return;
+
+    try {
+      const id = await importScormCourse(file);
+      setShowImport(false);
+      navigate(`/course/${id}`);
+    } catch {
+      // error stored in zustand
+    }
+  };
+
+  const openImport = () => {
+    setShowImport(true);
   };
 
   return (
@@ -58,6 +89,16 @@ export default function LibraryPage() {
             Characters
           </Button>
           <Button
+            size="small"
+            variant="outlined"
+            startIcon={<UploadFileIcon />}
+            onClick={openImport}
+            disabled={importing}
+            sx={{ borderColor: 'divider', color: 'text.secondary' }}
+          >
+            Import SCORM
+          </Button>
+          <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => navigate('/')}
@@ -75,11 +116,16 @@ export default function LibraryPage() {
               No courses yet
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 4 }}>
-              Create your first AI-generated course to get started.
+              Create your first AI-generated course or import an existing Rise 360 SCORM package.
             </Typography>
-            <Button variant="contained" onClick={() => navigate('/')} startIcon={<AddIcon />}>
-              Create a course
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
+              <Button variant="contained" onClick={() => navigate('/')} startIcon={<AddIcon />}>
+                Create a course
+              </Button>
+              <Button variant="outlined" onClick={openImport} startIcon={<UploadFileIcon />} disabled={importing}>
+                Import SCORM
+              </Button>
+            </Stack>
           </Box>
         ) : (
           <>
@@ -133,6 +179,15 @@ export default function LibraryPage() {
                             label={`${course.lessons.length} lessons`}
                             sx={{ bgcolor: 'grey.100', color: 'text.secondary', fontWeight: 500 }}
                           />
+                          {course.source === 'scorm-import' && (
+                            <Chip
+                              size="small"
+                              label="Imported"
+                              color="primary"
+                              variant="outlined"
+                              sx={{ fontWeight: 600 }}
+                            />
+                          )}
                           <Typography variant="caption" color="text.disabled" sx={{ ml: 'auto !important' }}>
                             {new Date(course.createdAt).toLocaleDateString()}
                           </Typography>
@@ -157,6 +212,80 @@ export default function LibraryPage() {
           </>
         )}
       </Container>
+
+      <Dialog open={showImport} onClose={() => !importing && setShowImport(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Import SCORM</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2}>
+            {status === 'error' && error && (
+              <Alert severity="error">{error}</Alert>
+            )}
+            <Box
+              onClick={() => !importing && inputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                handleImportFile(e.dataTransfer.files?.[0]);
+              }}
+              sx={{
+                border: 2,
+                borderStyle: 'dashed',
+                borderColor: dragging ? 'primary.main' : 'divider',
+                borderRadius: 2,
+                p: 4,
+                textAlign: 'center',
+                cursor: importing ? 'default' : 'pointer',
+                bgcolor: dragging ? 'action.hover' : 'background.paper',
+                transition: 'all 0.2s',
+                '&:hover': importing ? {} : { borderColor: 'primary.main', bgcolor: 'action.hover' },
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".zip,application/zip,application/x-zip-compressed"
+                hidden
+                disabled={importing}
+                onChange={(e) => handleImportFile(e.target.files?.[0])}
+              />
+              {importing ? (
+                <Stack spacing={1.5} alignItems="center">
+                  <CircularProgress size={28} />
+                  <Typography variant="body2" color="text.secondary">
+                    Importing SCORM package...
+                  </Typography>
+                </Stack>
+              ) : (
+                <>
+                  <UploadFileIcon sx={{ fontSize: 44, color: 'text.secondary', mb: 1 }} />
+                  <Typography variant="body2" fontWeight={700}>
+                    Drop a Rise 360 SCORM ZIP here
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    or click to browse
+                  </Typography>
+                </>
+              )}
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              V1 supports Rise 360 SCORM exports and creates editable placeholders for unsupported blocks.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowImport(false)} disabled={importing}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={() => inputRef.current?.click()} disabled={importing}>
+            Choose ZIP
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
