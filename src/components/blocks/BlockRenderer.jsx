@@ -6,8 +6,10 @@ import ListBlock from './ListBlock';
 import AccordionBlock from './AccordionBlock';
 import TabsBlock from './TabsBlock';
 import ProcessBlock from './ProcessBlock';
+import RiseProcessBlock from './RiseProcessBlock';
 import DividerBlock from './DividerBlock';
 import MultipleChoiceBlock from './MultipleChoiceBlock';
+import MultipleResponseBlock from './MultipleResponseBlock';
 import TrueFalseBlock from './TrueFalseBlock';
 import FillInBlankBlock from './FillInBlankBlock';
 import FlashcardBlock from './FlashcardBlock';
@@ -18,6 +20,7 @@ import YoutubeBlock from './YoutubeBlock';
 import DiagramBlock from './DiagramBlock';
 import ImageBlock from './ImageBlock';
 import CharacterBlock from './CharacterBlock';
+import RiseImageTextBlock from './RiseImageTextBlock';
 import Typography from '@mui/material/Typography';
 
 const BLOCK_MAP = {
@@ -30,8 +33,10 @@ const BLOCK_MAP = {
   accordion: AccordionBlock,
   tabs: TabsBlock,
   process: ProcessBlock,
+  'rise-process': RiseProcessBlock,
   divider: DividerBlock,
   'multiple-choice': MultipleChoiceBlock,
+  'multiple-response': MultipleResponseBlock,
   'true-false': TrueFalseBlock,
   'fill-in-blank': FillInBlankBlock,
   flashcard: FlashcardBlock,
@@ -42,6 +47,7 @@ const BLOCK_MAP = {
   diagram: DiagramBlock,
   image: ImageBlock,
   character: CharacterBlock,
+  'rise-image-text': RiseImageTextBlock,
 };
 
 // Returns false for blocks with missing required content so they are silently skipped
@@ -67,8 +73,12 @@ function hasContent(block) {
       return arr(block.items) && block.items.every((i) => text(i.label) && text(i.content));
     case 'process':
       return arr(block.steps) && block.steps.every((s) => text(s.title));
+    case 'rise-process':
+      return arr(block.steps) && block.steps.every((s) => text(s.title) || text(s.content) || text(s.imageSrc));
     case 'multiple-choice':
       return text(block.question) && arr(block.options, 2) && typeof block.correct === 'number';
+    case 'multiple-response':
+      return text(block.question) && arr(block.options, 2) && arr(block.correct);
     case 'true-false':
       return text(block.statement) && typeof block.correct === 'boolean';
     case 'fill-in-blank':
@@ -86,7 +96,9 @@ function hasContent(block) {
     case 'diagram':
       return typeof block.svg === 'string' && block.svg.trim().length > 20;
     case 'image':
-      return text(block.prompt);
+      return text(block.prompt) || text(block.src);
+    case 'rise-image-text':
+      return text(block.content) || text(block.imageSrc);
     case 'character':
       return text(block.message);
     default:

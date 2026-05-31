@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
@@ -125,6 +126,14 @@ export default function CoursePage() {
               >
                 {lessonIndex + 1} of {course.lessons.length}
               </Typography>
+              {course.source === 'scorm-import' && course.importSummary && (
+                <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                  Imported from Rise 360 SCORM: {course.importSummary.lessonsImported} lesson
+                  {course.importSummary.lessonsImported !== 1 ? 's' : ''}, {course.importSummary.blocksConverted} editable block
+                  {course.importSummary.blocksConverted !== 1 ? 's' : ''}, {course.importSummary.placeholdersCreated} placeholder
+                  {course.importSummary.placeholdersCreated !== 1 ? 's' : ''}.
+                </Alert>
+              )}
               <LessonViewer
                 lesson={activeLesson}
                 courseId={id}
