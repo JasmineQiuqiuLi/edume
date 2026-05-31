@@ -140,6 +140,19 @@ body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-s
 .step-num { width: 32px; height: 32px; border-radius: 50%; background: #4F46E5; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0; margin-top: 2px; }
 .step-title { font-weight: 700; margin-bottom: 4px; }
 .step-desc { color: #64748B; }
+/* Rise process */
+.rise-process { border: 1px solid #E2E8F0; border-radius: 10px; overflow: hidden; background: #fff; }
+.rise-process-panel { display: none; }
+.rise-process-panel.active { display: block; }
+.rise-process-img { width: 100%; max-height: 420px; object-fit: contain; display: block; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; }
+.rise-process-body { padding: 20px; }
+.rise-process-count { color: #4F46E5; font-size: .78rem; font-weight: 800; margin-bottom: 8px; }
+.rise-process-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 8px; }
+.rise-process-text { color: #64748B; white-space: pre-line; }
+.rise-process-nav { border-top: 1px solid #E2E8F0; padding: 14px 20px; display: flex; justify-content: space-between; gap: 12px; }
+.rise-process-btn { min-width: 110px; border: 1px solid #E2E8F0; border-radius: 8px; background: #fff; color: #0F172A; cursor: pointer; font-family: inherit; font-size: 0.9rem; font-weight: 700; padding: 9px 14px; }
+.rise-process-btn.primary { background: #4F46E5; border-color: #4F46E5; color: #fff; }
+.rise-process-btn:disabled { opacity: .45; cursor: default; }
 /* YouTube */
 .yt-wrapper { position: relative; padding-top: 56.25%; border-radius: 10px; overflow: hidden; background: #000; box-shadow: 0 4px 12px rgba(0,0,0,.1); }
 .yt-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
@@ -219,6 +232,15 @@ body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-s
 /* Image */
 .block-image img { max-width: 100%; border-radius: 8px; border: 1px solid #E2E8F0; display: block; margin: 0 auto; }
 .block-image .img-caption { margin-top: 8px; font-size: 0.85rem; color: #64748B; text-align: center; font-style: italic; }
+/* Rise image + text */
+.rise-image-text { display: flex; align-items: center; gap: 28px; }
+.rise-image-text.right { flex-direction: row-reverse; }
+.rise-image-text-media, .rise-image-text-copy { flex: 1; min-width: 0; }
+.rise-image-text-media img { width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px; border: 1px solid #E2E8F0; display: block; background: #F8FAFC; }
+.rise-image-text-copy { color: #64748B; white-space: pre-line; }
+@media (max-width: 760px) {
+  .rise-image-text, .rise-image-text.right { flex-direction: column; align-items: stretch; }
+}
 /* Character / social presence */
 .char-block { display: flex; align-items: flex-end; gap: 12px; }
 .char-block.right { flex-direction: row-reverse; }
@@ -369,6 +391,46 @@ function retryMC(id) {
   c.querySelector('.retry-btn').style.display = 'none';
   clearScormAnswer(id);
 }
+function sameIndexes(a, b) {
+  if (a.length !== b.length) return false;
+  var set = {};
+  a.forEach(function(value) { set[value] = true; });
+  return b.every(function(value) { return set[value]; });
+}
+function checkMR(id, correct, explanation) {
+  var c = document.getElementById(id);
+  var selected = [];
+  c.querySelectorAll('input[type=checkbox]').forEach(function(input, i) {
+    if (input.checked) selected.push(i);
+  });
+  if (selected.length === 0) return;
+  var ok = sameIndexes(selected, correct);
+  c.querySelectorAll('.mc-option').forEach(function(el, i) {
+    if (correct.indexOf(i) !== -1) el.classList.add('correct');
+    else if (selected.indexOf(i) !== -1) el.classList.add('incorrect');
+    el.querySelector('input').disabled = true;
+  });
+  var fb = c.querySelector('.feedback');
+  fb.className = 'feedback ' + (ok ? 'ok' : 'err');
+  fb.textContent = (ok ? 'Correct!' : 'Incorrect') + (explanation ? ' - ' + explanation : '');
+  fb.style.display = 'block';
+  c.querySelector('.check-btn').disabled = true;
+  c.querySelector('.retry-btn').style.display = 'inline-block';
+  recordScormAnswer(id, ok ? 1 : 0, 1);
+}
+function retryMR(id) {
+  var c = document.getElementById(id);
+  c.querySelectorAll('.mc-option').forEach(function(el) {
+    el.classList.remove('correct','incorrect');
+    var input = el.querySelector('input');
+    input.disabled = false;
+    input.checked = false;
+  });
+  c.querySelector('.feedback').style.display = 'none';
+  c.querySelector('.check-btn').disabled = false;
+  c.querySelector('.retry-btn').style.display = 'none';
+  clearScormAnswer(id);
+}
 function checkTF(id, chosen, correct, explanation) {
   var c = document.getElementById(id);
   ['true','false'].forEach(function(v) {
@@ -431,6 +493,17 @@ function fcNav(id, total, dir) {
   document.getElementById(id + '_prev').disabled = idx === 0;
   document.getElementById(id + '_next').disabled = idx === total - 1;
 }
+var _riseProcessIdx = {};
+function riseProcessNav(id, total, dir) {
+  _riseProcessIdx[id] = Math.max(0, Math.min(total - 1, (_riseProcessIdx[id] || 0) + dir));
+  var idx = _riseProcessIdx[id];
+  var panels = document.querySelectorAll('#' + id + ' .rise-process-panel');
+  panels.forEach(function(panel, i) {
+    panel.classList.toggle('active', i === idx);
+  });
+  document.getElementById(id + '_prev').disabled = idx === 0;
+  document.getElementById(id + '_next').disabled = idx === total - 1;
+}
 function checkMatch(id, pairs) {
   var c = document.getElementById(id);
   var rows = c.querySelectorAll('.match-row');
@@ -481,6 +554,14 @@ function initScormInteractions() {
       checkMC(el.getAttribute('data-id'), Number(el.getAttribute('data-correct')), el.getAttribute('data-explanation') || '');
     } else if (action === 'retry-mc') {
       retryMC(el.getAttribute('data-id'));
+    } else if (action === 'check-mr') {
+      checkMR(
+        el.getAttribute('data-id'),
+        JSON.parse(el.getAttribute('data-correct') || '[]'),
+        el.getAttribute('data-explanation') || ''
+      );
+    } else if (action === 'retry-mr') {
+      retryMR(el.getAttribute('data-id'));
     } else if (action === 'check-tf') {
       checkTF(
         el.getAttribute('data-id'),
@@ -612,6 +693,25 @@ function blockToHtml(block) {
 </div>`).join('');
       return `<div class="block">${steps}</div>`;
     }
+    case 'rise-process': {
+      const steps = block.steps ?? [];
+      const panels = steps.map((s, i) => `<div class="rise-process-panel${i === 0 ? ' active' : ''}">
+  ${s.imageSrc ? `<img class="rise-process-img" src="${esc(s.imageSrc)}" alt="${esc(s.alt ?? s.title ?? 'Process step image')}">` : ''}
+  <div class="rise-process-body">
+    <div class="rise-process-count">Step ${i + 1} of ${steps.length}</div>
+    <div class="rise-process-title">${esc(s.title ?? `Step ${i + 1}`)}</div>
+    ${s.content ? `<div class="rise-process-text">${esc(s.content)}</div>` : ''}
+  </div>
+</div>`).join('');
+      const nav = steps.length > 1 ? `<div class="rise-process-nav">
+  <button class="rise-process-btn" id="${id}_prev" onclick="riseProcessNav('${id}',${steps.length},-1)" disabled>Previous</button>
+  <button class="rise-process-btn primary" id="${id}_next" onclick="riseProcessNav('${id}',${steps.length},1)">Next</button>
+</div>` : '';
+      return `<div class="block rise-process" id="${id}">
+${panels}
+${nav}
+</div>`;
+    }
     case 'divider':
       return `<div class="block block-divider"><hr></div>`;
 
@@ -635,6 +735,13 @@ function blockToHtml(block) {
       return `<div class="block block-image">
   <img src="${block._scormSrc}" alt="${esc(block.alt ?? block.caption ?? 'Image')}">
   ${block.caption ? `<div class="img-caption">${esc(block.caption)}</div>` : ''}
+</div>`;
+    }
+    case 'rise-image-text': {
+      const side = block.imagePosition === 'right' ? 'right' : 'left';
+      return `<div class="block rise-image-text ${side}">
+  ${block.imageSrc ? `<div class="rise-image-text-media"><img src="${esc(block.imageSrc)}" alt="${esc(block.alt ?? block.caption ?? 'Imported Rise image')}">${block.caption ? `<div class="img-caption">${esc(block.caption)}</div>` : ''}</div>` : ''}
+  <div class="rise-image-text-copy">${esc(block.content ?? '')}</div>
 </div>`;
     }
 
@@ -670,6 +777,19 @@ function blockToHtml(block) {
   <div class="mc-options">${opts}</div>
   <button class="check-btn" type="button" data-scorm-action="check-mc" data-id="${esc(id)}" data-correct="${Number(block.correct)}" data-explanation="${esc(block.explanation ?? '')}">Check Answer</button>
   <button class="retry-btn" type="button" data-scorm-action="retry-mc" data-id="${esc(id)}">Try Again</button>
+  <div class="feedback"></div>
+</div>`;
+    }
+    case 'multiple-response': {
+      const correct = JSON.stringify(block.correct ?? []);
+      const opts = (block.options ?? []).map((opt, i) => `<label class="mc-option" id="${id}_o${i}">
+  <input type="checkbox" name="${id}_c" value="${i}"> ${esc(opt)}
+</label>`).join('');
+      return `<div class="block block-quiz" id="${id}">
+  <div class="question">${esc(block.question)}</div>
+  <div class="mc-options">${opts}</div>
+  <button class="check-btn" type="button" data-scorm-action="check-mr" data-id="${esc(id)}" data-correct="${esc(correct)}" data-explanation="${esc(block.explanation ?? '')}">Check Answer</button>
+  <button class="retry-btn" type="button" data-scorm-action="retry-mr" data-id="${esc(id)}">Try Again</button>
   <div class="feedback"></div>
 </div>`;
     }
@@ -773,7 +893,7 @@ function countGradablePoints(lessons) {
   let total = 0;
   for (const lesson of lessons ?? []) {
     for (const block of lesson.blocks ?? []) {
-      if (['multiple-choice', 'true-false', 'fill-in-blank', 'scenario'].includes(block.type)) {
+      if (['multiple-choice', 'multiple-response', 'true-false', 'fill-in-blank', 'scenario'].includes(block.type)) {
         total += 1;
       } else if (block.type === 'drag-to-match') {
         total += (block.pairs ?? []).length;
@@ -962,12 +1082,16 @@ async function prefetchImages(lessons) {
   const tasks = [];
   for (const lesson of lessons) {
     for (const block of lesson.blocks ?? []) {
-      if (block.type === 'image' && block.prompt) {
-        tasks.push(
-          fetchImageAsBase64(imageUrl(block.prompt)).then((dataUri) => {
-            block._scormSrc = dataUri ?? '';
-          })
-        );
+      if (block.type === 'image' && (block.src || block.prompt)) {
+        if (block.src) {
+          block._scormSrc = block.src;
+        } else {
+          tasks.push(
+            fetchImageAsBase64(imageUrl(block.prompt)).then((dataUri) => {
+              block._scormSrc = dataUri ?? '';
+            })
+          );
+        }
       }
       if (block.type === 'character') {
         const avatarUrl = block.imageUrl

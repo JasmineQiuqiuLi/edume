@@ -14,6 +14,7 @@ export const BLOCK_CATALOG = [
   { type: 'scenario', label: 'Scenario', category: 'Interaction', defaults: { type: 'scenario', setup: 'Describe the situation.', choices: [{ label: 'Good choice', isCorrect: true, consequence: 'This is a good outcome.' }, { label: 'Risky choice', isCorrect: false, consequence: 'This could cause issues.' }] } },
   { type: 'reveal', label: 'Reveal', category: 'Interaction', defaults: { type: 'reveal', prompt: 'Prompt text', revealContent: 'Hidden answer or explanation.' } },
   { type: 'multiple-choice', label: 'Multiple Choice', category: 'Quiz', defaults: { type: 'multiple-choice', question: 'Question text?', options: ['Correct answer', 'Incorrect answer'], correct: 0, explanation: '' } },
+  { type: 'multiple-response', label: 'Multiple Answer', category: 'Quiz', defaults: { type: 'multiple-response', question: 'Question text? Select all that apply.', options: ['Correct answer', 'Another correct answer', 'Incorrect answer'], correct: [0, 1], explanation: '' } },
   { type: 'true-false', label: 'True / False', category: 'Quiz', defaults: { type: 'true-false', statement: 'Statement text.', correct: true, explanation: '' } },
   { type: 'fill-in-blank', label: 'Fill in the Blank', category: 'Quiz', defaults: { type: 'fill-in-blank', template: 'The answer is ___.', answer: 'answer', hint: '' } },
   { type: 'drag-to-match', label: 'Drag to Match', category: 'Quiz', defaults: { type: 'drag-to-match', pairs: [{ prompt: 'Prompt 1', answer: 'Answer 1' }, { prompt: 'Prompt 2', answer: 'Answer 2' }] } },

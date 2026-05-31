@@ -229,6 +229,47 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
     );
   }
 
+  if (type === 'rise-process') {
+    return (
+      <Repeater
+        title="Rise process steps"
+        items={block.steps}
+        emptyItem={{ title: 'Step', content: 'Description', imageSrc: '', alt: '' }}
+        minItems={1}
+        onChange={(steps) => set({ steps })}
+        renderItem={(step, setStep) => (
+          <Stack spacing={1.5}>
+            <Field label="Step title" value={step.title} onChange={(title) => setStep({ ...step, title })} />
+            <Field label="Step content" value={step.content} onChange={(content) => setStep({ ...step, content })} multiline minRows={3} />
+            <Button variant="outlined" component="label">
+              Upload step image
+              <input
+                hidden
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const imageSrc = await fileToDataUrl(file);
+                  if (imageSrc) setStep({ ...step, imageSrc, alt: step.alt || file.name });
+                }}
+              />
+            </Button>
+            {step.imageSrc && (
+              <Box
+                component="img"
+                src={step.imageSrc}
+                alt={step.alt ?? step.title ?? 'Process step image'}
+                sx={{ width: '100%', maxHeight: 180, objectFit: 'contain', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'grey.50' }}
+              />
+            )}
+            <Field label="Image alt text" value={step.alt} onChange={(alt) => setStep({ ...step, alt })} />
+          </Stack>
+        )}
+      />
+    );
+  }
+
   if (type === 'multiple-choice') {
     const options = block.options ?? [];
     return (
@@ -245,6 +286,43 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
               <Field label="Option text" value={option} onChange={setOption} />
               <FormControlLabel
                 control={<Radio checked={(block.correct ?? 0) === index} onChange={() => set({ correct: index })} />}
+                label="Correct answer"
+              />
+            </Stack>
+          )}
+        />
+        <Field label="Explanation" value={block.explanation} onChange={(explanation) => set({ explanation })} multiline minRows={2} />
+      </Stack>
+    );
+  }
+
+  if (type === 'multiple-response') {
+    const options = block.options ?? [];
+    const correct = block.correct ?? [];
+    return (
+      <Stack spacing={2}>
+        <Field label="Question" value={block.question} onChange={(question) => set({ question })} multiline minRows={2} />
+        <Repeater
+          title="Options"
+          items={options}
+          emptyItem="New option"
+          minItems={2}
+          onChange={(nextOptions) => set({ options: nextOptions, correct: correct.filter((index) => index < nextOptions.length) })}
+          renderItem={(option, setOption, index) => (
+            <Stack spacing={1}>
+              <Field label="Option text" value={option} onChange={setOption} />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={correct.includes(index)}
+                    onChange={(e) => {
+                      const nextCorrect = e.target.checked
+                        ? [...correct, index].sort((a, b) => a - b)
+                        : correct.filter((value) => value !== index);
+                      set({ correct: nextCorrect });
+                    }}
+                  />
+                }
                 label="Correct answer"
               />
             </Stack>
@@ -368,6 +446,42 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
     return (
       <Stack spacing={2}>
         <Field label="Image prompt" value={block.prompt} onChange={(prompt) => set({ prompt })} multiline minRows={3} />
+        <Field label="Alt text" value={block.alt} onChange={(alt) => set({ alt })} />
+        <Field label="Caption" value={block.caption} onChange={(caption) => set({ caption })} />
+      </Stack>
+    );
+  }
+
+  if (type === 'rise-image-text') {
+    return (
+      <Stack spacing={2}>
+        <Field label="Text" value={block.content} onChange={(content) => set({ content })} multiline minRows={5} />
+        <Field label="Image position" value={block.imagePosition ?? 'left'} onChange={(imagePosition) => set({ imagePosition })} select>
+          <MenuItem value="left">Left</MenuItem>
+          <MenuItem value="right">Right</MenuItem>
+        </Field>
+        <Button variant="outlined" component="label">
+          Upload image
+          <input
+            hidden
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const imageSrc = await fileToDataUrl(file);
+              if (imageSrc) set({ imageSrc, alt: block.alt || file.name });
+            }}
+          />
+        </Button>
+        {block.imageSrc && (
+          <Box
+            component="img"
+            src={block.imageSrc}
+            alt={block.alt ?? block.caption ?? 'Imported Rise image'}
+            sx={{ width: '100%', maxHeight: 180, objectFit: 'contain', border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'grey.50' }}
+          />
+        )}
         <Field label="Alt text" value={block.alt} onChange={(alt) => set({ alt })} />
         <Field label="Caption" value={block.caption} onChange={(caption) => set({ caption })} />
       </Stack>
