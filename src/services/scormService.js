@@ -25,6 +25,12 @@ function rich(value, fallback = '') {
   return html || esc(fallback);
 }
 
+function clampPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 50;
+  return Math.max(0, Math.min(100, number));
+}
+
 // ── SCORM 1.2 API wrapper (goes in scorm.js) ───────────────────────────────
 const SCORM_JS = `
 (function () {
@@ -247,6 +253,22 @@ body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-s
 @media (max-width: 760px) {
   .rise-image-text, .rise-image-text.right { flex-direction: column; align-items: stretch; }
 }
+/* Rise labeled graphic */
+.rise-labeled-graphic { position: relative; }
+.rise-labeled-graphic.open { margin-bottom: 128px; }
+.rlg-stage { position: relative; width: 100%; border: 1px solid #E2E8F0; border-radius: 10px; background: #F8FAFC; }
+.rlg-stage img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.rlg-pin { position: absolute; width: 36px; height: 36px; transform: translate(-50%, -50%); border: 3px solid #fff; border-radius: 50%; background: #DC2626; color: #fff; opacity: .72; box-shadow: 0 8px 18px rgba(15,23,42,.22); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; line-height: 1; z-index: 2; transition: width .15s ease, height .15s ease, opacity .15s ease, box-shadow .15s ease, background .15s ease; }
+.rlg-pin::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: #fff; display: block; }
+.rlg-pin:hover { opacity: 1; background: #991B1B; }
+.rlg-pin.active { width: 46px; height: 46px; opacity: 1; background: #991B1B; border-width: 4px; box-shadow: 0 0 0 4px rgba(37,99,235,.42), 0 10px 24px rgba(15,23,42,.3); z-index: 4; }
+.rlg-card { position: absolute; display: none; width: min(360px, calc(100% - 32px)); border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px 18px; background: #fff; box-shadow: 0 14px 36px rgba(15,23,42,.22); transform: translateY(-50%); z-index: 5; }
+.rlg-card.active { display: block; }
+.rlg-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.rlg-title { flex: 1; font-weight: 800; color: #0F172A; }
+.rlg-close { width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #64748B; cursor: pointer; font-size: 1.25rem; line-height: 1; display: flex; align-items: center; justify-content: center; }
+.rlg-close:hover { background: #F1F5F9; color: #0F172A; }
+.rlg-desc { color: #334155; }
 /* Character / social presence */
 .char-block { display: flex; align-items: flex-end; gap: 12px; }
 .char-block.right { flex-direction: row-reverse; }
@@ -510,6 +532,32 @@ function riseProcessNav(id, total, dir) {
   document.getElementById(id + '_prev').disabled = idx === 0;
   document.getElementById(id + '_next').disabled = idx === total - 1;
 }
+function showLabeledGraphicMarker(id, idx) {
+  var c = document.getElementById(id);
+  if (!c) return;
+  var selected = c.querySelectorAll('.rlg-pin')[idx];
+  var close = selected && selected.classList.contains('active');
+  c.querySelectorAll('.rlg-pin').forEach(function(pin, i) {
+    pin.classList.toggle('active', !close && i === idx);
+    pin.setAttribute('aria-pressed', !close && i === idx ? 'true' : 'false');
+  });
+  c.querySelectorAll('.rlg-card').forEach(function(card, i) {
+    card.classList.toggle('active', !close && i === idx);
+  });
+  c.classList.toggle('open', !close);
+}
+function closeLabeledGraphicMarker(id) {
+  var c = document.getElementById(id);
+  if (!c) return;
+  c.querySelectorAll('.rlg-pin').forEach(function(pin) {
+    pin.classList.remove('active');
+    pin.setAttribute('aria-pressed', 'false');
+  });
+  c.querySelectorAll('.rlg-card').forEach(function(card) {
+    card.classList.remove('active');
+  });
+  c.classList.remove('open');
+}
 function checkMatch(id, pairs) {
   var c = document.getElementById(id);
   var rows = c.querySelectorAll('.match-row');
@@ -748,6 +796,34 @@ ${nav}
       return `<div class="block rise-image-text ${side}">
   ${block.imageSrc ? `<div class="rise-image-text-media"><img src="${esc(block.imageSrc)}" alt="${esc(block.alt ?? block.caption ?? 'Imported Rise image')}">${block.caption || block.captionHtml ? `<div class="img-caption">${rich(block.captionHtml, block.caption)}</div>` : ''}</div>` : ''}
   <div class="rise-image-text-copy">${rich(block.contentHtml, block.content ?? '')}</div>
+</div>`;
+    }
+
+    case 'rise-labeled-graphic': {
+      const markers = block.markers ?? [];
+      if (!block.imageSrc || !markers.length) return '';
+      const pins = markers.map((marker, i) => `<button class="rlg-pin" type="button" style="left:${clampPercent(marker.x)}%;top:${clampPercent(marker.y)}%" aria-pressed="false" aria-label="${esc(marker.title || `Marker ${i + 1}`)}" onclick="showLabeledGraphicMarker('${id}',${i})"></button>`).join('');
+      const cards = markers.map((marker, i) => {
+        const x = clampPercent(marker.x);
+        const y = clampPercent(marker.y);
+        const cardOnRight = x < 62;
+        const sideStyle = cardOnRight
+          ? `left:calc(${x}% + 30px);right:auto;max-width:calc(100% - ${x}% - 46px)`
+          : `right:calc(${100 - x}% + 30px);left:auto;max-width:calc(${x}% - 46px)`;
+        return `<div class="rlg-card" style="top:clamp(92px, ${y}%, calc(100% - 92px));${sideStyle}">
+  <div class="rlg-head">
+    <div class="rlg-title">${esc(marker.title || `Marker ${i + 1}`)}</div>
+    <button class="rlg-close" type="button" aria-label="Close marker detail" onclick="closeLabeledGraphicMarker('${id}')">&times;</button>
+  </div>
+  <div class="rlg-desc">${rich(marker.descriptionHtml, marker.description)}</div>
+</div>`;
+      }).join('');
+      return `<div class="block rise-labeled-graphic" id="${id}">
+  <div class="rlg-stage">
+    <img src="${esc(block.imageSrc)}" alt="${esc(block.alt ?? 'Imported Rise labeled graphic')}">
+    ${pins}
+    ${cards}
+  </div>
 </div>`;
     }
 

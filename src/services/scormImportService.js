@@ -125,6 +125,12 @@ function blockId(sourceId) {
   return sourceId ? `rise_${sourceId}` : uuidv4();
 }
 
+function clampPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 50;
+  return Math.max(0, Math.min(100, number));
+}
+
 function compactBlocks(blocks) {
   return blocks.filter(Boolean).filter((block) => {
     if (block.type === 'divider') return true;
@@ -133,6 +139,7 @@ function compactBlocks(blocks) {
     }
     if (block.type === 'image') return block.src || block.prompt;
     if (block.type === 'rise-image-text') return block.imageSrc || block.content;
+    if (block.type === 'rise-labeled-graphic') return block.imageSrc && block.markers?.length;
     if (block.type === 'flashcard') return block.cards?.length;
     if (block.type === 'tabs') return block.items?.length;
     if (block.type === 'process' || block.type === 'rise-process') return block.steps?.length;
@@ -311,6 +318,36 @@ async function convertProcess(zip, riseBlock, warnings) {
   }] : [];
 }
 
+async function convertLabeledGraphic(zip, riseBlock, warnings) {
+  const image = await resolveImageDataUrl(zip, riseBlock, warnings);
+  const markers = (riseBlock.items ?? [])
+    .map((item, index) => {
+      const title = textFromHtml(item.title) || `Marker ${index + 1}`;
+      const descriptionSource = item.description || item.paragraph;
+      return {
+        id: item.id || uuidv4(),
+        title,
+        description: textFromHtml(descriptionSource),
+        descriptionHtml: htmlFromRise(descriptionSource),
+        x: clampPercent(item.x),
+        y: clampPercent(item.y),
+      };
+    })
+    .filter((marker) => marker.title || marker.description || marker.descriptionHtml);
+
+  if (!image) {
+    return [placeholder(riseBlock, 'The labeled graphic background image could not be found.')];
+  }
+
+  return [{
+    id: blockId(riseBlock.id),
+    type: 'rise-labeled-graphic',
+    imageSrc: image.src,
+    alt: image.name || 'Imported Rise labeled graphic',
+    markers,
+  }];
+}
+
 function convertImpactNote(riseBlock) {
   const content = (riseBlock.items ?? [])
     .map((item) => textFromHtml(item.paragraph))
@@ -396,6 +433,10 @@ async function convertRiseBlock(zip, riseBlock, warnings) {
 
   if (kind === 'interactive|interactive-fullscreen|process') {
     return convertProcess(zip, riseBlock, warnings);
+  }
+
+  if (kind === 'interactive|interactive-fullscreen|labeledgraphic') {
+    return convertLabeledGraphic(zip, riseBlock, warnings);
   }
 
   if (riseBlock.type === 'knowledgeCheck' || riseBlock.family === 'knowledgeCheck') {

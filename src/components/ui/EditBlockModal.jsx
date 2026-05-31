@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -20,6 +20,7 @@ import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { getBlockDefinition } from '../blocks/blockCatalog';
 import RichTextEditor from './RichTextEditor';
 import { richTextToPlainText } from '../../utils/richText';
@@ -148,6 +149,163 @@ function JsonEditor({ value, onChange }) {
       helperText={error || 'Advanced fallback for troubleshooting.'}
       inputProps={{ style: { fontFamily: 'monospace', fontSize: 13 } }}
     />
+  );
+}
+
+function clampPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 50;
+  return Math.max(0, Math.min(100, number));
+}
+
+function LabeledGraphicMarkerEditor({ block, set }) {
+  const stageRef = useRef(null);
+  const [draggingIndex, setDraggingIndex] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const markers = block.markers ?? [];
+
+  const updateMarker = (index, patch) => {
+    set({ markers: updateAt(markers, index, { ...markers[index], ...patch }) });
+  };
+
+  const updateFromPointer = (index, event) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    updateMarker(index, {
+      x: clampPercent(((event.clientX - rect.left) / rect.width) * 100),
+      y: clampPercent(((event.clientY - rect.top) / rect.height) * 100),
+    });
+  };
+
+  return (
+    <Stack spacing={2}>
+      <Button variant="outlined" component="label">
+        Replace background image
+        <input
+          hidden
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const imageSrc = await fileToDataUrl(file);
+            if (imageSrc) set({ imageSrc, alt: block.alt || file.name });
+          }}
+        />
+      </Button>
+
+      {block.imageSrc && (
+        <Box
+          ref={stageRef}
+          sx={{
+            position: 'relative',
+            width: '100%',
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 2,
+            overflow: 'hidden',
+            bgcolor: 'grey.50',
+            touchAction: 'none',
+          }}
+        >
+          <Box
+            component="img"
+            src={block.imageSrc}
+            alt={block.alt ?? 'Imported Rise labeled graphic'}
+            sx={{ display: 'block', width: '100%', height: 'auto', userSelect: 'none', pointerEvents: 'none' }}
+          />
+          {markers.map((marker, index) => {
+            const active = selectedIndex === index || draggingIndex === index;
+            return (
+              <IconButton
+                key={marker.id ?? index}
+                aria-label={`Drag ${marker.title || `marker ${index + 1}`}`}
+                aria-pressed={active}
+                size="small"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setSelectedIndex(index);
+                  setDraggingIndex(index);
+                  updateFromPointer(index, event);
+                }}
+                onPointerMove={(event) => {
+                  if (draggingIndex === index) updateFromPointer(index, event);
+                }}
+                onPointerUp={(event) => {
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                  }
+                  setDraggingIndex(null);
+                }}
+                sx={{
+                  position: 'absolute',
+                  left: `${clampPercent(marker.x)}%`,
+                  top: `${clampPercent(marker.y)}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: active ? 44 : 34,
+                  height: active ? 44 : 34,
+                  color: '#fff',
+                  bgcolor: active ? '#991B1B' : '#DC2626',
+                  opacity: active ? 1 : 0.72,
+                  border: active ? '4px solid #fff' : '3px solid #fff',
+                  boxShadow: active ? '0 0 0 4px rgba(37, 99, 235, 0.42), 0 10px 24px rgba(15, 23, 42, 0.3)' : 4,
+                  cursor: 'grab',
+                  zIndex: active ? 3 : 2,
+                  transition: 'width .15s ease, height .15s ease, opacity .15s ease, box-shadow .15s ease',
+                  '&:active': { cursor: 'grabbing' },
+                  '&:hover': { bgcolor: '#991B1B', opacity: 1 },
+                }}
+              >
+                <LocationOnIcon fontSize={active ? 'medium' : 'small'} />
+              </IconButton>
+            );
+          })}
+        </Box>
+      )}
+
+      <Field label="Image alt text" value={block.alt} onChange={(alt) => set({ alt })} />
+
+      <Repeater
+        title="Markers"
+        items={markers}
+        emptyItem={{ title: 'Marker', description: 'Description', descriptionHtml: '<p>Description</p>', x: 50, y: 50 }}
+        minItems={1}
+        onChange={(nextMarkers) => set({ markers: nextMarkers })}
+        renderItem={(marker, setMarker) => (
+          <Stack spacing={1.5}>
+            <Field label="Marker title" value={marker.title} onChange={(title) => setMarker({ ...marker, title })} />
+            <RichField
+              label="Marker description"
+              html={marker.descriptionHtml}
+              text={marker.description}
+              minHeight={120}
+              onChange={(descriptionHtml, description) => setMarker({ ...marker, descriptionHtml, description })}
+            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <TextField
+                label="X position"
+                value={clampPercent(marker.x)}
+                type="number"
+                fullWidth
+                inputProps={{ min: 0, max: 100, step: 0.1 }}
+                onChange={(e) => setMarker({ ...marker, x: clampPercent(e.target.value) })}
+              />
+              <TextField
+                label="Y position"
+                value={clampPercent(marker.y)}
+                type="number"
+                fullWidth
+                inputProps={{ min: 0, max: 100, step: 0.1 }}
+                onChange={(e) => setMarker({ ...marker, y: clampPercent(e.target.value) })}
+              />
+            </Stack>
+          </Stack>
+        )}
+      />
+    </Stack>
   );
 }
 
@@ -531,6 +689,10 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
         <RichField label="Caption" html={block.captionHtml} text={block.caption} minHeight={90} onChange={(captionHtml, caption) => set({ captionHtml, caption })} />
       </Stack>
     );
+  }
+
+  if (type === 'rise-labeled-graphic') {
+    return <LabeledGraphicMarkerEditor block={block} set={set} />;
   }
 
   if (type === 'diagram') {

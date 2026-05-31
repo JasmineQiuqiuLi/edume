@@ -21,6 +21,7 @@ import DiagramBlock from './DiagramBlock';
 import ImageBlock from './ImageBlock';
 import CharacterBlock from './CharacterBlock';
 import RiseImageTextBlock from './RiseImageTextBlock';
+import RiseLabeledGraphicBlock from './RiseLabeledGraphicBlock';
 import Typography from '@mui/material/Typography';
 
 const BLOCK_MAP = {
@@ -48,6 +49,7 @@ const BLOCK_MAP = {
   image: ImageBlock,
   character: CharacterBlock,
   'rise-image-text': RiseImageTextBlock,
+  'rise-labeled-graphic': RiseLabeledGraphicBlock,
 };
 
 // Returns false for blocks with missing required content so they are silently skipped
@@ -99,6 +101,8 @@ function hasContent(block) {
       return text(block.prompt) || text(block.src);
     case 'rise-image-text':
       return text(block.content) || text(block.imageSrc);
+    case 'rise-labeled-graphic':
+      return text(block.imageSrc) && arr(block.markers);
     case 'character':
       return text(block.message);
     default:
