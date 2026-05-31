@@ -3,6 +3,7 @@ import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import StepContent from '@mui/material/StepContent';
 import Typography from '@mui/material/Typography';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function ProcessBlock({ block }) {
   return (
@@ -13,7 +14,7 @@ export default function ProcessBlock({ block }) {
             <Typography fontWeight={600}>{step.title}</Typography>
           </StepLabel>
           <StepContent>
-            <Typography color="text.secondary">{step.content}</Typography>
+            <RichTextRenderer html={step.contentHtml} text={step.content} sx={{ color: 'text.secondary' }} />
           </StepContent>
         </Step>
       ))}

@@ -21,6 +21,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getBlockDefinition } from '../blocks/blockCatalog';
+import RichTextEditor from './RichTextEditor';
+import { richTextToPlainText } from '../../utils/richText';
 
 function parseYouTubeUrl(value) {
   const raw = String(value ?? '').trim();
@@ -69,6 +71,18 @@ function Field({ label, value, onChange, multiline = false, minRows = 1, placeho
     >
       {children}
     </TextField>
+  );
+}
+
+function RichField({ label, html, text, onChange, minHeight }) {
+  return (
+    <RichTextEditor
+      label={label}
+      html={html}
+      text={text}
+      minHeight={minHeight}
+      onChange={(nextHtml) => onChange(nextHtml, richTextToPlainText(nextHtml))}
+    />
   );
 }
 
@@ -144,7 +158,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
   if (type === 'heading') {
     return (
       <Stack spacing={2}>
-        <Field label="Heading text" value={block.content} onChange={(content) => set({ content })} />
+        <RichField label="Heading text" html={block.contentHtml} text={block.content} onChange={(contentHtml, content) => set({ contentHtml, content })} />
         <Field label="Heading level" value={block.level ?? 2} onChange={(level) => set({ level: Number(level) })} select>
           {[1, 2, 3].map((level) => <MenuItem key={level} value={level}>Level {level}</MenuItem>)}
         </Field>
@@ -152,7 +166,9 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
     );
   }
 
-  if (type === 'paragraph') return <Field label="Paragraph" value={block.content} onChange={(content) => set({ content })} multiline minRows={5} />;
+  if (type === 'paragraph') {
+    return <RichField label="Paragraph" html={block.contentHtml} text={block.content} minHeight={180} onChange={(contentHtml, content) => set({ contentHtml, content })} />;
+  }
 
   if (type === 'statement') {
     return (
@@ -160,7 +176,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
         <Field label="Style" value={block.variant ?? 'note'} onChange={(variant) => set({ variant })} select>
           {['note', 'tip', 'warning'].map((variant) => <MenuItem key={variant} value={variant}>{variant}</MenuItem>)}
         </Field>
-        <Field label="Content" value={block.content} onChange={(content) => set({ content })} multiline minRows={4} />
+        <RichField label="Content" html={block.contentHtml} text={block.content} minHeight={140} onChange={(contentHtml, content) => set({ contentHtml, content })} />
       </Stack>
     );
   }
@@ -168,7 +184,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
   if (type === 'quote') {
     return (
       <Stack spacing={2}>
-        <Field label="Quote" value={block.content} onChange={(content) => set({ content })} multiline minRows={4} />
+        <RichField label="Quote" html={block.contentHtml} text={block.content} minHeight={140} onChange={(contentHtml, content) => set({ contentHtml, content })} />
         <Field label="Attribution" value={block.attribution} onChange={(attribution) => set({ attribution })} />
       </Stack>
     );
@@ -187,7 +203,18 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
           emptyItem=""
           minItems={1}
           onChange={(items) => set({ items })}
-          renderItem={(item, setItem) => <Field label="Item text" value={item} onChange={setItem} />}
+          renderItem={(item, _setItem, index) => (
+            <RichField
+              label="Item text"
+              html={block.itemsHtml?.[index]}
+              text={item}
+              onChange={(itemHtml, itemText) => {
+                const itemsHtml = [...(block.itemsHtml ?? block.items.map(() => ''))];
+                itemsHtml[index] = itemHtml;
+                set({ items: updateAt(block.items ?? [], index, itemText), itemsHtml });
+              }}
+            />
+          )}
         />
       </Stack>
     );
@@ -204,7 +231,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
         renderItem={(item, setItem) => (
           <Stack spacing={1.5}>
             <Field label="Label" value={item.label} onChange={(label) => setItem({ ...item, label })} />
-            <Field label="Content" value={item.content} onChange={(content) => setItem({ ...item, content })} multiline minRows={3} />
+            <RichField label="Content" html={item.contentHtml} text={item.content} minHeight={120} onChange={(contentHtml, content) => setItem({ ...item, contentHtml, content })} />
           </Stack>
         )}
       />
@@ -222,7 +249,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
         renderItem={(step, setStep) => (
           <Stack spacing={1.5}>
             <Field label="Step title" value={step.title} onChange={(title) => setStep({ ...step, title })} />
-            <Field label="Step content" value={step.content} onChange={(content) => setStep({ ...step, content })} multiline minRows={3} />
+            <RichField label="Step content" html={step.contentHtml} text={step.content} minHeight={120} onChange={(contentHtml, content) => setStep({ ...step, contentHtml, content })} />
           </Stack>
         )}
       />
@@ -240,7 +267,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
         renderItem={(step, setStep) => (
           <Stack spacing={1.5}>
             <Field label="Step title" value={step.title} onChange={(title) => setStep({ ...step, title })} />
-            <Field label="Step content" value={step.content} onChange={(content) => setStep({ ...step, content })} multiline minRows={3} />
+            <RichField label="Step content" html={step.contentHtml} text={step.content} minHeight={120} onChange={(contentHtml, content) => setStep({ ...step, contentHtml, content })} />
             <Button variant="outlined" component="label">
               Upload step image
               <input
@@ -274,16 +301,25 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
     const options = block.options ?? [];
     return (
       <Stack spacing={2}>
-        <Field label="Question" value={block.question} onChange={(question) => set({ question })} multiline minRows={2} />
+        <RichField label="Question" html={block.questionHtml} text={block.question} minHeight={100} onChange={(questionHtml, question) => set({ questionHtml, question })} />
         <Repeater
           title="Options"
           items={options}
           emptyItem="New option"
           minItems={2}
           onChange={(nextOptions) => set({ options: nextOptions, correct: Math.min(block.correct ?? 0, nextOptions.length - 1) })}
-          renderItem={(option, setOption, index) => (
+          renderItem={(option, _setOption, index) => (
             <Stack spacing={1}>
-              <Field label="Option text" value={option} onChange={setOption} />
+              <RichField
+                label="Option text"
+                html={block.optionsHtml?.[index]}
+                text={option}
+                onChange={(optionHtml, optionText) => {
+                  const optionsHtml = [...(block.optionsHtml ?? options.map(() => ''))];
+                  optionsHtml[index] = optionHtml;
+                  set({ options: updateAt(options, index, optionText), optionsHtml });
+                }}
+              />
               <FormControlLabel
                 control={<Radio checked={(block.correct ?? 0) === index} onChange={() => set({ correct: index })} />}
                 label="Correct answer"
@@ -291,7 +327,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
             </Stack>
           )}
         />
-        <Field label="Explanation" value={block.explanation} onChange={(explanation) => set({ explanation })} multiline minRows={2} />
+        <RichField label="Explanation" html={block.explanationHtml} text={block.explanation} minHeight={100} onChange={(explanationHtml, explanation) => set({ explanationHtml, explanation })} />
       </Stack>
     );
   }
@@ -301,16 +337,25 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
     const correct = block.correct ?? [];
     return (
       <Stack spacing={2}>
-        <Field label="Question" value={block.question} onChange={(question) => set({ question })} multiline minRows={2} />
+        <RichField label="Question" html={block.questionHtml} text={block.question} minHeight={100} onChange={(questionHtml, question) => set({ questionHtml, question })} />
         <Repeater
           title="Options"
           items={options}
           emptyItem="New option"
           minItems={2}
           onChange={(nextOptions) => set({ options: nextOptions, correct: correct.filter((index) => index < nextOptions.length) })}
-          renderItem={(option, setOption, index) => (
+          renderItem={(option, _setOption, index) => (
             <Stack spacing={1}>
-              <Field label="Option text" value={option} onChange={setOption} />
+              <RichField
+                label="Option text"
+                html={block.optionsHtml?.[index]}
+                text={option}
+                onChange={(optionHtml, optionText) => {
+                  const optionsHtml = [...(block.optionsHtml ?? options.map(() => ''))];
+                  optionsHtml[index] = optionHtml;
+                  set({ options: updateAt(options, index, optionText), optionsHtml });
+                }}
+              />
               <FormControlLabel
                 control={
                   <Checkbox
@@ -328,7 +373,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
             </Stack>
           )}
         />
-        <Field label="Explanation" value={block.explanation} onChange={(explanation) => set({ explanation })} multiline minRows={2} />
+        <RichField label="Explanation" html={block.explanationHtml} text={block.explanation} minHeight={100} onChange={(explanationHtml, explanation) => set({ explanationHtml, explanation })} />
       </Stack>
     );
   }
@@ -336,12 +381,12 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
   if (type === 'true-false') {
     return (
       <Stack spacing={2}>
-        <Field label="Statement" value={block.statement} onChange={(statement) => set({ statement })} multiline minRows={3} />
+        <RichField label="Statement" html={block.statementHtml} text={block.statement} minHeight={120} onChange={(statementHtml, statement) => set({ statementHtml, statement })} />
         <Field label="Correct answer" value={String(block.correct ?? true)} onChange={(correct) => set({ correct: correct === 'true' })} select>
           <MenuItem value="true">True</MenuItem>
           <MenuItem value="false">False</MenuItem>
         </Field>
-        <Field label="Explanation" value={block.explanation} onChange={(explanation) => set({ explanation })} multiline minRows={2} />
+        <RichField label="Explanation" html={block.explanationHtml} text={block.explanation} minHeight={100} onChange={(explanationHtml, explanation) => set({ explanationHtml, explanation })} />
       </Stack>
     );
   }
@@ -366,8 +411,8 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
         onChange={(cards) => set({ cards })}
         renderItem={(card, setCard) => (
           <Stack spacing={1.5}>
-            <Field label="Front" value={card.front} onChange={(front) => setCard({ ...card, front })} multiline minRows={2} />
-            <Field label="Back" value={card.back} onChange={(back) => setCard({ ...card, back })} multiline minRows={2} />
+            <RichField label="Front" html={card.frontHtml} text={card.front} minHeight={100} onChange={(frontHtml, front) => setCard({ ...card, frontHtml, front })} />
+            <RichField label="Back" html={card.backHtml} text={card.back} minHeight={120} onChange={(backHtml, back) => setCard({ ...card, backHtml, back })} />
           </Stack>
         )}
       />
@@ -395,7 +440,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
   if (type === 'scenario') {
     return (
       <Stack spacing={2}>
-        <Field label="Scenario setup" value={block.setup} onChange={(setup) => set({ setup })} multiline minRows={4} />
+            <RichField label="Scenario setup" html={block.setupHtml} text={block.setup} minHeight={140} onChange={(setupHtml, setup) => set({ setupHtml, setup })} />
         <Repeater
           title="Choices"
           items={block.choices}
@@ -404,12 +449,12 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
           onChange={(choices) => set({ choices })}
           renderItem={(choice, setChoice) => (
             <Stack spacing={1.5}>
-              <Field label="Choice text" value={choice.label} onChange={(label) => setChoice({ ...choice, label })} />
+              <RichField label="Choice text" html={choice.labelHtml} text={choice.label} minHeight={90} onChange={(labelHtml, label) => setChoice({ ...choice, labelHtml, label })} />
               <FormControlLabel
                 control={<Checkbox checked={!!choice.isCorrect} onChange={(e) => setChoice({ ...choice, isCorrect: e.target.checked })} />}
                 label="Correct choice"
               />
-              <Field label="Consequence" value={choice.consequence} onChange={(consequence) => setChoice({ ...choice, consequence })} multiline minRows={2} />
+              <RichField label="Consequence" html={choice.consequenceHtml} text={choice.consequence} minHeight={100} onChange={(consequenceHtml, consequence) => setChoice({ ...choice, consequenceHtml, consequence })} />
             </Stack>
           )}
         />
@@ -420,8 +465,8 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
   if (type === 'reveal') {
     return (
       <Stack spacing={2}>
-        <Field label="Prompt" value={block.prompt} onChange={(prompt) => set({ prompt })} multiline minRows={3} />
-        <Field label="Reveal content" value={block.revealContent} onChange={(revealContent) => set({ revealContent })} multiline minRows={4} />
+        <RichField label="Prompt" html={block.promptHtml} text={block.prompt} minHeight={120} onChange={(promptHtml, prompt) => set({ promptHtml, prompt })} />
+        <RichField label="Reveal content" html={block.revealContentHtml} text={block.revealContent} minHeight={140} onChange={(revealContentHtml, revealContent) => set({ revealContentHtml, revealContent })} />
       </Stack>
     );
   }
@@ -437,7 +482,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
           placeholder="https://www.youtube.com/watch?v=..."
         />
         {!block.videoId && <Typography variant="caption" color="error">Enter a valid YouTube URL.</Typography>}
-        <Field label="Caption" value={block.caption} onChange={(caption) => set({ caption })} />
+        <RichField label="Caption" html={block.captionHtml} text={block.caption} minHeight={90} onChange={(captionHtml, caption) => set({ captionHtml, caption })} />
       </Stack>
     );
   }
@@ -455,7 +500,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
   if (type === 'rise-image-text') {
     return (
       <Stack spacing={2}>
-        <Field label="Text" value={block.content} onChange={(content) => set({ content })} multiline minRows={5} />
+        <RichField label="Text" html={block.contentHtml} text={block.content} minHeight={180} onChange={(contentHtml, content) => set({ contentHtml, content })} />
         <Field label="Image position" value={block.imagePosition ?? 'left'} onChange={(imagePosition) => set({ imagePosition })} select>
           <MenuItem value="left">Left</MenuItem>
           <MenuItem value="right">Right</MenuItem>
@@ -483,7 +528,7 @@ function BlockFields({ block, onChange, applyCharacterImage, onApplyCharacterIma
           />
         )}
         <Field label="Alt text" value={block.alt} onChange={(alt) => set({ alt })} />
-        <Field label="Caption" value={block.caption} onChange={(caption) => set({ caption })} />
+        <RichField label="Caption" html={block.captionHtml} text={block.caption} minHeight={90} onChange={(captionHtml, caption) => set({ captionHtml, caption })} />
       </Stack>
     );
   }
