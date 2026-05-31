@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Skeleton from '@mui/material/Skeleton';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 // Deterministic seed from prompt so the same course always shows the same image
 function hashSeed(str) {
@@ -50,13 +51,13 @@ export default function ImageBlock({ block }) {
           borderColor: 'divider',
         }}
       />
-      {loaded && block.caption && (
+      {loaded && (block.caption || block.captionHtml) && (
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ mt: 1, display: 'block', textAlign: 'center', fontStyle: 'italic' }}
         >
-          {block.caption}
+          <RichTextRenderer html={block.captionHtml} text={block.caption} />
         </Typography>
       )}
     </Box>

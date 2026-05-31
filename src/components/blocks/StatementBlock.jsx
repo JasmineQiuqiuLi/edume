@@ -1,5 +1,6 @@
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 const variantMap = {
   note: 'info',
@@ -19,7 +20,7 @@ export default function StatementBlock({ block }) {
   return (
     <Alert severity={severity} sx={{ borderRadius: 2 }}>
       <AlertTitle>{title}</AlertTitle>
-      {block.content}
+      <RichTextRenderer html={block.contentHtml} text={block.content} />
     </Alert>
   );
 }

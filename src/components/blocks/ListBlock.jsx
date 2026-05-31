@@ -2,6 +2,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Typography from '@mui/material/Typography';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function ListBlock({ block }) {
   const isNumbered = block.type === 'numbered-list';
@@ -15,7 +16,7 @@ export default function ListBlock({ block }) {
           >
             {isNumbered ? `${i + 1}.` : '•'}
           </Typography>
-          <ListItemText primary={item} />
+          <ListItemText primary={<RichTextRenderer html={block.itemsHtml?.[i]} text={item} />} />
         </ListItem>
       ))}
     </List>

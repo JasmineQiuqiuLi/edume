@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import RichTextRenderer from '../ui/RichTextRenderer';
 
 export default function RiseImageTextBlock({ block }) {
   const imageFirst = block.imagePosition !== 'right';
@@ -31,9 +32,7 @@ export default function RiseImageTextBlock({ block }) {
   ) : null;
 
   const text = (
-    <Typography color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-      {block.content}
-    </Typography>
+    <RichTextRenderer html={block.contentHtml} text={block.content} sx={{ color: 'text.secondary', whiteSpace: 'pre-line' }} />
   );
 
   return (
