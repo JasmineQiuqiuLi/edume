@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { generateCourse, refineBlock as refineBlockApi } from '../services/claudeService';
+import { importRiseScormPackage } from '../services/scormImportService';
 import DEFAULT_PROFILES from '../data/characterProfiles';
 
 // Assign one approved character image per persona used in the course.
@@ -34,7 +35,7 @@ const useCourseStore = create(
       courses: [],
       activeCourseId: null,
       activeLessonId: null,
-      status: 'idle', // 'idle' | 'generating' | 'refining' | 'error'
+      status: 'idle', // 'idle' | 'generating' | 'importing' | 'refining' | 'error'
       error: null,
 
       // ── Character pool ────────────────────────────────────────────────
@@ -75,6 +76,27 @@ const useCourseStore = create(
             status: 'idle',
           }));
           return id;
+        } catch (err) {
+          set({ status: 'error', error: err.message });
+          throw err;
+        }
+      },
+
+      importScormCourse: async (file) => {
+        set({ status: 'importing', error: null });
+        try {
+          const importedCourse = await importRiseScormPackage(file);
+          const newCourse = {
+            ...importedCourse,
+            createdAt: new Date().toISOString(),
+          };
+          set((state) => ({
+            courses: [newCourse, ...state.courses],
+            activeCourseId: newCourse.id,
+            activeLessonId: newCourse.lessons[0]?.id ?? null,
+            status: 'idle',
+          }));
+          return newCourse.id;
         } catch (err) {
           set({ status: 'error', error: err.message });
           throw err;

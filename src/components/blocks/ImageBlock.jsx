@@ -22,9 +22,9 @@ export default function ImageBlock({ block }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
 
-  if (error) return null; // silently drop if Pollinations fails
+  if (error) return null; // silently drop if image loading fails
 
-  const src = pollinationsUrl(block.prompt);
+  const src = block.src || pollinationsUrl(block.prompt);
 
   return (
     <Box>
